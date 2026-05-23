@@ -39,6 +39,8 @@ cargo run -- check
 cargo run -- check /path/to/repo
 cargo run -- check --format json
 cargo run -- check --format markdown
+cargo run -- check --format github
+cargo run -- check --format sarif
 cargo run -- check --profile generic
 cargo run -- check --profile rust
 cargo run -- check --profile node

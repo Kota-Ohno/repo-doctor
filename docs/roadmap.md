@@ -149,9 +149,9 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 
 ### P2 - Automation outputs
 
-- [ ] Add `--format markdown` for PR comments and human reports.
-- [ ] Add GitHub Actions annotation output.
-- [ ] Add SARIF output after rule IDs and locations are stable.
+- [x] Add `--format markdown` for PR comments and human reports.
+- [x] Add GitHub Actions annotation output.
+- [x] Add SARIF output after rule IDs and locations are stable.
 - [ ] Add file paths and line numbers where parsers provide them.
 
 ### P3 - Remote GitHub checks

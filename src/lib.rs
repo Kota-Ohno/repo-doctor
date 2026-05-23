@@ -55,6 +55,8 @@ pub enum OutputFormat {
     Text,
     Json,
     Markdown,
+    Github,
+    Sarif,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -100,6 +102,8 @@ pub fn check_repository(
         OutputFormat::Text => report.format_text(),
         OutputFormat::Json => serde_json::to_string_pretty(&report)?,
         OutputFormat::Markdown => report.format_markdown(),
+        OutputFormat::Github => report.format_github_annotations(),
+        OutputFormat::Sarif => report.format_sarif()?,
     };
 
     Ok(RunOutput { text, exit_code })
@@ -610,6 +614,30 @@ requires = ["setuptools"]
                 .contains("| Status | Rule | Message | Remediation |")
         );
         assert!(output.text.contains("| PASS | `rust_cargo_name` |"));
+    }
+
+    #[test]
+    fn github_annotation_output_emits_warnings_only() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Github, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("::warning title=readme::"));
+        assert!(!output.text.contains("[PASS]"));
+    }
+
+    #[test]
+    fn sarif_output_contains_warning_results() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Sarif, Profile::Auto, None).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&output.text).unwrap();
+
+        assert_eq!(value.get("version").unwrap(), "2.1.0");
+        assert_eq!(value["runs"][0]["tool"]["driver"]["name"], "repo-doctor");
+        assert_eq!(value["runs"][0]["results"][0]["ruleId"], "readme");
     }
 
     #[test]

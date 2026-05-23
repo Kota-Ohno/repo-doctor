@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use serde::Serialize;
+use serde_json::json;
 
 use crate::profiles::Profile;
 
@@ -87,6 +88,94 @@ impl Report {
         }
 
         lines.join("\n")
+    }
+
+    pub fn format_github_annotations(&self) -> String {
+        let warnings = self
+            .checks
+            .iter()
+            .filter(|check| matches!(check.status, CheckStatus::Warn))
+            .collect::<Vec<_>>();
+
+        if warnings.is_empty() {
+            return "repo-doctor: no warnings".to_owned();
+        }
+
+        warnings
+            .iter()
+            .map(|check| {
+                format!(
+                    "::warning title={}::{}",
+                    escape_github_annotation(check.id),
+                    escape_github_annotation(&format!(
+                        "{} Remediation: {}",
+                        check.message, check.remediation
+                    ))
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    pub fn format_sarif(&self) -> serde_json::Result<String> {
+        let rules = self
+            .checks
+            .iter()
+            .map(|check| {
+                json!({
+                    "id": check.id,
+                    "name": check.id,
+                    "shortDescription": {
+                        "text": check.message,
+                    },
+                    "help": {
+                        "text": check.remediation,
+                    },
+                })
+            })
+            .collect::<Vec<_>>();
+        let results = self
+            .checks
+            .iter()
+            .filter(|check| matches!(check.status, CheckStatus::Warn))
+            .map(|check| {
+                json!({
+                    "ruleId": check.id,
+                    "level": "warning",
+                    "message": {
+                        "text": check.message,
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": self.path.display().to_string(),
+                                },
+                            },
+                        },
+                    ],
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let sarif = json!({
+            "version": "2.1.0",
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "repo-doctor",
+                            "informationUri": "https://github.com/Kota-Ohno/repo-doctor",
+                            "rules": rules,
+                        },
+                    },
+                    "results": results,
+                },
+            ],
+        });
+
+        serde_json::to_string_pretty(&sarif)
     }
 }
 
@@ -192,4 +281,13 @@ fn format_profiles(profiles: &[Profile]) -> String {
 
 fn escape_markdown_table_cell(value: &str) -> String {
     value.replace('|', "\\|").replace('\n', "<br>")
+}
+
+fn escape_github_annotation(value: &str) -> String {
+    value
+        .replace('%', "%25")
+        .replace('\r', "%0D")
+        .replace('\n', "%0A")
+        .replace(':', "%3A")
+        .replace(',', "%2C")
 }
