@@ -58,6 +58,7 @@ cargo run -- check --profile cpp
 cargo run -- check --profile swift
 cargo run -- check --profile kotlin
 cargo run -- check --fail-on warn
+cargo run -- github Kota-Ohno/repo-doctor
 cargo test
 cargo clippy --all-targets --all-features -- -D warnings
 cargo c
@@ -102,6 +103,11 @@ severity = "info"
 `--format json` emits `schema_version: 1`. Fields may be added in later minor
 versions, but existing rule IDs and field meanings should remain stable within
 schema version 1.
+
+## Remote GitHub Checks
+
+`repo-doctor github owner/repo` runs optional remote checks through the `gh` CLI.
+It is separate from local `check` so local repository checks stay offline-first.
 
 ## Layout
 

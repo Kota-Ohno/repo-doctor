@@ -7,6 +7,7 @@ use clap_complete::Shell;
 mod checks;
 mod config;
 mod core;
+mod github;
 mod profiles;
 mod report;
 
@@ -52,6 +53,16 @@ pub enum Command {
         path: PathBuf,
     },
 
+    /// Run remote GitHub repository checks using the gh CLI.
+    Github {
+        /// GitHub repository in owner/name form.
+        repo: String,
+
+        /// Output format.
+        #[arg(short, long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
+    },
+
     /// Generate shell completion scripts.
     Completions {
         /// Shell to generate completions for.
@@ -86,6 +97,7 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             fail_on,
         } => check_repository_with_config(&path, format, profile, config.as_deref(), fail_on),
         Command::Init { path } => init_config(&path),
+        Command::Github { repo, format } => check_github_repository(&repo, format),
         Command::Completions { shell } => Ok(RunOutput {
             text: completions(shell)?,
             exit_code: 0,
@@ -165,6 +177,19 @@ pub fn init_config(path: &Path) -> Result<RunOutput> {
         text: format!("Created {}", config_path.display()),
         exit_code: 0,
     })
+}
+
+pub fn check_github_repository(repo: &str, format: OutputFormat) -> Result<RunOutput> {
+    let report = github::inspect(repo)?;
+    let text = match format {
+        OutputFormat::Text => report.format_text(),
+        OutputFormat::Json => serde_json::to_string_pretty(&report)?,
+        OutputFormat::Markdown => report.format_markdown(),
+        OutputFormat::Github => report.format_github_annotations(),
+        OutputFormat::Sarif => report.format_sarif()?,
+    };
+
+    Ok(RunOutput { text, exit_code: 0 })
 }
 
 fn validate_repository_path(path: &Path) -> Result<()> {

@@ -158,12 +158,12 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 
 ### P3 - Remote GitHub checks
 
-- [ ] Add an explicit `repo-doctor github owner/repo` command.
+- [x] Add an explicit `repo-doctor github owner/repo` command.
 - [ ] Use GitHub community profile API as an optional comparison source.
-- [ ] Check default branch protection status.
-- [ ] Check repository description and topics.
-- [ ] Check repository security features where the token has permission.
-- [ ] Check recent maintenance activity.
+- [x] Check default branch protection status.
+- [x] Check repository description and topics.
+- [x] Check repository security features where the token has permission.
+- [x] Check recent maintenance activity.
 - [ ] Add OpenSSF Scorecard comparison or link-out mode.
 
 ## Out of scope for now
