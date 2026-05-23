@@ -16,6 +16,7 @@ pub enum Profile {
     Python,
     Go,
     Docker,
+    Jvm,
 }
 
 impl Profile {
@@ -28,6 +29,7 @@ impl Profile {
             Profile::Python => "python",
             Profile::Go => "go",
             Profile::Docker => "docker",
+            Profile::Jvm => "jvm",
         }
     }
 }
@@ -61,6 +63,9 @@ fn detect(path: &Path) -> Vec<Profile> {
     if has_container_files(path) {
         profiles.push(Profile::Docker);
     }
+    if has_jvm_files(path) {
+        profiles.push(Profile::Jvm);
+    }
 
     profiles
 }
@@ -79,6 +84,18 @@ fn has_container_files(path: &Path) -> bool {
     .any(|candidate| path.join(candidate).exists())
 }
 
+fn has_jvm_files(path: &Path) -> bool {
+    [
+        "pom.xml",
+        "build.gradle",
+        "build.gradle.kts",
+        "settings.gradle",
+        "settings.gradle.kts",
+    ]
+    .iter()
+    .any(|candidate| path.join(candidate).exists())
+}
+
 pub(crate) fn inspect(path: &Path, profiles: &[Profile]) -> Vec<Check> {
     let mut checks = Vec::new();
 
@@ -89,6 +106,7 @@ pub(crate) fn inspect(path: &Path, profiles: &[Profile]) -> Vec<Check> {
             Profile::Python => checks.extend(inspect_python(path)),
             Profile::Go => checks.extend(inspect_go(path)),
             Profile::Docker => checks.extend(inspect_docker(path)),
+            Profile::Jvm => checks.extend(inspect_jvm(path)),
             Profile::Auto | Profile::Generic => {}
         }
     }
@@ -697,5 +715,173 @@ fn empty_check() -> Check {
         severity: crate::report::Severity::Info,
         message: String::new(),
         remediation: String::new(),
+    }
+}
+
+fn inspect_jvm(path: &Path) -> Vec<Check> {
+    let has_maven = path.join("pom.xml").exists();
+    let has_gradle = ["build.gradle", "build.gradle.kts"]
+        .iter()
+        .any(|candidate| path.join(candidate).exists());
+
+    let mut checks = vec![
+        check_jvm_build_file(has_maven, has_gradle),
+        check_jvm_wrapper(path, has_maven, has_gradle),
+        check_jvm_settings(path, has_gradle),
+    ];
+
+    if has_maven {
+        checks.extend(inspect_maven(path));
+    }
+    if has_gradle {
+        checks.extend(inspect_gradle(path));
+    }
+
+    checks
+}
+
+fn check_jvm_build_file(has_maven: bool, has_gradle: bool) -> Check {
+    if has_maven || has_gradle {
+        pass("jvm_build_file", "JVM build file is present")
+    } else {
+        warn(
+            "jvm_build_file",
+            "JVM build file is missing",
+            "Add pom.xml, build.gradle, or build.gradle.kts.",
+        )
+    }
+}
+
+fn check_jvm_wrapper(path: &Path, has_maven: bool, has_gradle: bool) -> Check {
+    let has_maven_wrapper = path.join("mvnw").exists() || path.join("mvnw.cmd").exists();
+    let has_gradle_wrapper = path.join("gradlew").exists() || path.join("gradlew.bat").exists();
+    let wrapper_ok = (has_maven && has_maven_wrapper) || (has_gradle && has_gradle_wrapper);
+
+    if wrapper_ok {
+        pass("jvm_wrapper", "JVM build wrapper is present")
+    } else {
+        warn(
+            "jvm_wrapper",
+            "JVM build wrapper is missing",
+            "Commit mvnw or gradlew so builds use a consistent tool version.",
+        )
+    }
+}
+
+fn check_jvm_settings(path: &Path, has_gradle: bool) -> Check {
+    if !has_gradle {
+        return empty_check();
+    }
+
+    if path.join("settings.gradle").exists() || path.join("settings.gradle.kts").exists() {
+        pass("jvm_gradle_settings", "Gradle settings file is present")
+    } else {
+        warn(
+            "jvm_gradle_settings",
+            "Gradle settings file is missing",
+            "Add settings.gradle or settings.gradle.kts.",
+        )
+    }
+}
+
+fn inspect_maven(path: &Path) -> Vec<Check> {
+    let pom = match std::fs::read_to_string(path.join("pom.xml")) {
+        Ok(contents) => contents,
+        Err(_) => {
+            return vec![warn(
+                "jvm_maven_pom",
+                "pom.xml could not be read",
+                "Make pom.xml readable.",
+            )];
+        }
+    };
+
+    vec![
+        check_xml_tag(&pom, "jvm_maven_group_id", "groupId", "Maven groupId"),
+        check_xml_tag(
+            &pom,
+            "jvm_maven_artifact_id",
+            "artifactId",
+            "Maven artifactId",
+        ),
+        check_xml_tag(&pom, "jvm_maven_version", "version", "Maven version"),
+    ]
+}
+
+fn check_xml_tag(contents: &str, id: &'static str, tag: &'static str, label: &str) -> Check {
+    let open = format!("<{tag}>");
+    let close = format!("</{tag}>");
+
+    if contents.contains(&open) && contents.contains(&close) {
+        pass(id, format!("{label} is set"))
+    } else {
+        warn(
+            id,
+            format!("{label} is missing"),
+            format!("Set <{tag}> in pom.xml."),
+        )
+    }
+}
+
+fn inspect_gradle(path: &Path) -> Vec<Check> {
+    let build_file = ["build.gradle", "build.gradle.kts"]
+        .iter()
+        .map(|candidate| path.join(candidate))
+        .find(|candidate| candidate.exists());
+    let Some(build_file) = build_file else {
+        return Vec::new();
+    };
+
+    let contents = match std::fs::read_to_string(build_file) {
+        Ok(contents) => contents,
+        Err(_) => {
+            return vec![warn(
+                "jvm_gradle_build",
+                "Gradle build file could not be read",
+                "Make the Gradle build file readable.",
+            )];
+        }
+    };
+
+    vec![
+        check_gradle_has_group(&contents),
+        check_gradle_has_version(&contents),
+        check_gradle_test_task(&contents),
+    ]
+}
+
+fn check_gradle_has_group(contents: &str) -> Check {
+    if contents.contains("group =") || contents.contains("group=") {
+        pass("jvm_gradle_group", "Gradle group is set")
+    } else {
+        warn(
+            "jvm_gradle_group",
+            "Gradle group is missing",
+            "Set group in the Gradle build file.",
+        )
+    }
+}
+
+fn check_gradle_has_version(contents: &str) -> Check {
+    if contents.contains("version =") || contents.contains("version=") {
+        pass("jvm_gradle_version", "Gradle version is set")
+    } else {
+        warn(
+            "jvm_gradle_version",
+            "Gradle version is missing",
+            "Set version in the Gradle build file.",
+        )
+    }
+}
+
+fn check_gradle_test_task(contents: &str) -> Check {
+    if contents.contains("test {") || contents.contains("tasks.test") {
+        pass("jvm_gradle_test", "Gradle test task is configured")
+    } else {
+        warn(
+            "jvm_gradle_test",
+            "Gradle test task is not explicitly configured",
+            "Configure the test task if this project has tests.",
+        )
     }
 }

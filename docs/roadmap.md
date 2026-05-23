@@ -36,7 +36,7 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Validate the target path exists and is a directory.
 - [x] Keep JSON output stable and document the report schema.
 - [x] Split check logic into focused modules instead of growing `src/lib.rs`.
-- [x] Add `--profile generic|auto|rust|node|python|go|docker`.
+- [x] Add `--profile generic|auto|rust|node|python|go|docker|jvm`.
 - [x] Default `--profile` to `auto`.
 - [x] Support common README names such as `README.md`, `README`, and `README.txt`.
 - [x] Support common license names such as `LICENSE`, `LICENSE.md`, and `LICENSE.txt`.
@@ -60,6 +60,7 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Detect Go by `go.mod`.
 - [x] Detect Docker/container projects by Dockerfile, Containerfile, Compose,
       or `.dockerignore`.
+- [x] Detect JVM projects by Maven or Gradle build files.
 - [x] Ensure `--profile generic` runs core checks only.
 
 ### P1 - Rust project hygiene
@@ -105,6 +106,13 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Check `.dockerignore`.
 - [x] Check Compose file presence.
 - [x] Warn on base images that use `:latest`.
+
+### P1 - Java/JVM hygiene
+
+- [x] Detect Maven or Gradle build files.
+- [x] Check Maven/Gradle wrapper presence.
+- [x] Check Maven `groupId`, `artifactId`, and `version`.
+- [x] Check Gradle settings, group, version, and test task hints.
 
 ### P1 - GitHub Actions local checks
 

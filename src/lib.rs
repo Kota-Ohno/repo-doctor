@@ -205,6 +205,7 @@ mod tests {
         assert!(!output.text.contains("python_"));
         assert!(!output.text.contains("go_"));
         assert!(!output.text.contains("docker_"));
+        assert!(!output.text.contains("jvm_"));
     }
 
     #[test]
@@ -300,6 +301,23 @@ requires = ["setuptools"]
 
         assert!(output.text.contains("Profiles: docker"));
         assert!(output.text.contains("[WARN] docker_base_image_pin"));
+    }
+
+    #[test]
+    fn explicit_jvm_profile_runs_maven_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("pom.xml"),
+            "<project><groupId>com.example</groupId><artifactId>demo</artifactId><version>0.1.0</version></project>",
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("mvnw"), "#!/bin/sh\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Jvm, None).unwrap();
+
+        assert!(output.text.contains("[PASS] jvm_build_file"));
+        assert!(output.text.contains("[PASS] jvm_maven_artifact_id"));
     }
 
     #[test]
