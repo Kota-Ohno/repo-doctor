@@ -2,6 +2,8 @@ bin.name = "repo-doctor"
 args = "check"
 stdout = """
 Repository: .
+Profiles: rust
+Summary: 22 passed, 0 warnings, score 100
 [PASS] readme: README is present
 [PASS] license: License file is present
 [PASS] gitignore: .gitignore is present

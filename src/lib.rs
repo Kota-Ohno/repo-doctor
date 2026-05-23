@@ -54,6 +54,7 @@ pub enum Command {
 pub enum OutputFormat {
     Text,
     Json,
+    Markdown,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -98,6 +99,7 @@ pub fn check_repository(
     let text = match format {
         OutputFormat::Text => report.format_text(),
         OutputFormat::Json => serde_json::to_string_pretty(&report)?,
+        OutputFormat::Markdown => report.format_markdown(),
     };
 
     Ok(RunOutput { text, exit_code })
@@ -108,7 +110,7 @@ pub fn inspect_repository(path: &Path, profile: Profile) -> report::Report {
     let selected_profiles = profiles::resolve(path, profile);
     checks.extend(profiles::inspect(path, &selected_profiles));
 
-    report::Report::new(path.to_path_buf(), checks)
+    report::Report::new(path.to_path_buf(), selected_profiles, checks)
 }
 
 fn validate_repository_path(path: &Path) -> Result<()> {
@@ -157,6 +159,8 @@ mod tests {
             check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
 
         assert!(output.text.contains("[PASS] readme: README is present"));
+        assert!(output.text.contains("Profiles: rust"));
+        assert!(output.text.contains("Summary:"));
         assert!(
             output
                 .text
@@ -173,6 +177,7 @@ mod tests {
             check_repository(temp_dir.path(), OutputFormat::Text, Profile::Generic, None).unwrap();
 
         assert!(output.text.contains("[PASS] readme: README is present"));
+        assert!(output.text.contains("Profiles: none"));
         assert!(!output.text.contains("rust_cargo_name"));
     }
 
@@ -364,8 +369,28 @@ requires = ["setuptools"]
         let value: serde_json::Value = serde_json::from_str(&output.text).unwrap();
 
         assert_eq!(value.get("schema_version").unwrap(), 1);
+        assert_eq!(value.get("selected_profiles").unwrap()[0], "rust");
+        assert!(value.get("summary").unwrap().is_object());
         assert!(value.get("checks").unwrap().is_array());
         assert!(output.text.contains("\"id\": \"rust_cargo_name\""));
+    }
+
+    #[test]
+    fn markdown_output_contains_summary_and_table() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        write_rust_fixture(temp_dir.path());
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Markdown, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("# repo-doctor report"));
+        assert!(output.text.contains("- Profiles: rust"));
+        assert!(
+            output
+                .text
+                .contains("| Status | Rule | Message | Remediation |")
+        );
+        assert!(output.text.contains("| PASS | `rust_cargo_name` |"));
     }
 
     #[test]

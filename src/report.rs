@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
+use crate::profiles::Profile;
+
 #[derive(Debug)]
 pub struct RunOutput {
     pub text: String,
@@ -12,14 +14,20 @@ pub struct RunOutput {
 pub struct Report {
     schema_version: u16,
     path: PathBuf,
+    selected_profiles: Vec<Profile>,
+    summary: Summary,
     checks: Vec<Check>,
 }
 
 impl Report {
-    pub fn new(path: PathBuf, checks: Vec<Check>) -> Self {
+    pub fn new(path: PathBuf, selected_profiles: Vec<Profile>, checks: Vec<Check>) -> Self {
+        let summary = Summary::from_checks(&checks);
+
         Self {
             schema_version: 1,
             path,
+            selected_profiles,
+            summary,
             checks,
         }
     }
@@ -32,6 +40,14 @@ impl Report {
 
     pub fn format_text(&self) -> String {
         let mut lines = vec![format!("Repository: {}", self.path.display())];
+        lines.push(format!(
+            "Profiles: {}",
+            format_profiles(&self.selected_profiles)
+        ));
+        lines.push(format!(
+            "Summary: {} passed, {} warnings, score {}",
+            self.summary.pass, self.summary.warn, self.summary.score
+        ));
 
         for check in &self.checks {
             let marker = match check.status {
@@ -43,6 +59,66 @@ impl Report {
         }
 
         lines.join("\n")
+    }
+
+    pub fn format_markdown(&self) -> String {
+        let mut lines = vec![
+            "# repo-doctor report".to_owned(),
+            String::new(),
+            format!("- Repository: `{}`", self.path.display()),
+            format!("- Profiles: {}", format_profiles(&self.selected_profiles)),
+            format!(
+                "- Summary: {} passed, {} warnings, score {}",
+                self.summary.pass, self.summary.warn, self.summary.score
+            ),
+            String::new(),
+            "| Status | Rule | Message | Remediation |".to_owned(),
+            "| --- | --- | --- | --- |".to_owned(),
+        ];
+
+        for check in &self.checks {
+            lines.push(format!(
+                "| {} | `{}` | {} | {} |",
+                check.status.markdown_label(),
+                check.id,
+                escape_markdown_table_cell(&check.message),
+                escape_markdown_table_cell(&check.remediation)
+            ));
+        }
+
+        lines.join("\n")
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct Summary {
+    pass: usize,
+    warn: usize,
+    total: usize,
+    score: u8,
+}
+
+impl Summary {
+    fn from_checks(checks: &[Check]) -> Self {
+        let pass = checks
+            .iter()
+            .filter(|check| matches!(check.status, CheckStatus::Pass))
+            .count();
+        let warn = checks
+            .iter()
+            .filter(|check| matches!(check.status, CheckStatus::Warn))
+            .count();
+        let total = checks.len();
+        let score = (pass * 100)
+            .checked_div(total)
+            .map_or(100, |score| score as u8);
+
+        Self {
+            pass,
+            warn,
+            total,
+            score,
+        }
     }
 }
 
@@ -60,6 +136,15 @@ pub struct Check {
 pub enum CheckStatus {
     Pass,
     Warn,
+}
+
+impl CheckStatus {
+    fn markdown_label(&self) -> &'static str {
+        match self {
+            CheckStatus::Pass => "PASS",
+            CheckStatus::Warn => "WARN",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
@@ -91,4 +176,20 @@ pub(crate) fn warn(
         message: message.into(),
         remediation: remediation.into(),
     }
+}
+
+fn format_profiles(profiles: &[Profile]) -> String {
+    if profiles.is_empty() {
+        "none".to_owned()
+    } else {
+        profiles
+            .iter()
+            .map(|profile| profile.name())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+}
+
+fn escape_markdown_table_cell(value: &str) -> String {
+    value.replace('|', "\\|").replace('\n', "<br>")
 }

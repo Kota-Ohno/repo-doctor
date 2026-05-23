@@ -34,6 +34,7 @@ select a profile explicitly.
 cargo run -- check
 cargo run -- check /path/to/repo
 cargo run -- check --format json
+cargo run -- check --format markdown
 cargo run -- check --profile generic
 cargo run -- check --profile rust
 cargo run -- check --profile node

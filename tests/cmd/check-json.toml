@@ -4,6 +4,15 @@ stdout = """
 {
   "schema_version": 1,
   "path": ".",
+  "selected_profiles": [
+    "rust"
+  ],
+  "summary": {
+    "pass": 22,
+    "warn": 0,
+    "total": 22,
+    "score": 100
+  },
   "checks": [
     {
       "id": "readme",

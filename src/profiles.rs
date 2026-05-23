@@ -1,11 +1,13 @@
 use std::path::Path;
 
 use clap::ValueEnum;
+use serde::Serialize;
 use serde_json::Value as JsonValue;
 
 use crate::report::{Check, pass, warn};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
 pub enum Profile {
     Auto,
     Generic,
@@ -13,6 +15,19 @@ pub enum Profile {
     Node,
     Python,
     Go,
+}
+
+impl Profile {
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            Profile::Auto => "auto",
+            Profile::Generic => "generic",
+            Profile::Rust => "rust",
+            Profile::Node => "node",
+            Profile::Python => "python",
+            Profile::Go => "go",
+        }
+    }
 }
 
 pub(crate) fn resolve(path: &Path, profile: Profile) -> Vec<Profile> {
