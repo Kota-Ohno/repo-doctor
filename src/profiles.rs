@@ -15,6 +15,7 @@ pub enum Profile {
     Node,
     Python,
     Go,
+    Docker,
 }
 
 impl Profile {
@@ -26,6 +27,7 @@ impl Profile {
             Profile::Node => "node",
             Profile::Python => "python",
             Profile::Go => "go",
+            Profile::Docker => "docker",
         }
     }
 }
@@ -56,8 +58,25 @@ fn detect(path: &Path) -> Vec<Profile> {
     if path.join("go.mod").exists() {
         profiles.push(Profile::Go);
     }
+    if has_container_files(path) {
+        profiles.push(Profile::Docker);
+    }
 
     profiles
+}
+
+fn has_container_files(path: &Path) -> bool {
+    [
+        "Dockerfile",
+        "Containerfile",
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "compose.yml",
+        "compose.yaml",
+        ".dockerignore",
+    ]
+    .iter()
+    .any(|candidate| path.join(candidate).exists())
 }
 
 pub(crate) fn inspect(path: &Path, profiles: &[Profile]) -> Vec<Check> {
@@ -69,6 +88,7 @@ pub(crate) fn inspect(path: &Path, profiles: &[Profile]) -> Vec<Check> {
             Profile::Node => checks.extend(inspect_node(path)),
             Profile::Python => checks.extend(inspect_python(path)),
             Profile::Go => checks.extend(inspect_go(path)),
+            Profile::Docker => checks.extend(inspect_docker(path)),
             Profile::Auto | Profile::Generic => {}
         }
     }
@@ -571,6 +591,101 @@ fn check_go_sum(path: &Path) -> Check {
             "go_sum",
             "go.sum is missing",
             "Run `go mod tidy` and commit go.sum when dependencies are present.",
+        )
+    }
+}
+
+fn inspect_docker(path: &Path) -> Vec<Check> {
+    vec![
+        check_container_build_file(path),
+        check_dockerignore(path),
+        check_compose_file(path),
+        check_dockerfile_latest_tag(path),
+    ]
+}
+
+fn check_container_build_file(path: &Path) -> Check {
+    if path.join("Dockerfile").exists() || path.join("Containerfile").exists() {
+        pass("docker_build_file", "Container build file is present")
+    } else {
+        warn(
+            "docker_build_file",
+            "Container build file is missing",
+            "Add Dockerfile or Containerfile, or use --profile generic if this is not a containerized project.",
+        )
+    }
+}
+
+fn check_dockerignore(path: &Path) -> Check {
+    if path.join(".dockerignore").exists() {
+        pass("dockerignore", ".dockerignore is present")
+    } else {
+        warn(
+            "dockerignore",
+            ".dockerignore is missing",
+            "Add .dockerignore to keep build contexts small and avoid copying unwanted files.",
+        )
+    }
+}
+
+fn check_compose_file(path: &Path) -> Check {
+    let candidates = [
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "compose.yml",
+        "compose.yaml",
+    ];
+
+    if candidates
+        .iter()
+        .any(|candidate| path.join(candidate).exists())
+    {
+        pass("docker_compose", "Compose file is present")
+    } else {
+        warn(
+            "docker_compose",
+            "Compose file is missing",
+            "Add a compose file if local multi-service development is expected.",
+        )
+    }
+}
+
+fn check_dockerfile_latest_tag(path: &Path) -> Check {
+    let build_file = ["Dockerfile", "Containerfile"]
+        .iter()
+        .map(|candidate| path.join(candidate))
+        .find(|candidate| candidate.exists());
+
+    let Some(build_file) = build_file else {
+        return empty_check();
+    };
+
+    let contents = match std::fs::read_to_string(&build_file) {
+        Ok(contents) => contents,
+        Err(_) => {
+            return warn(
+                "docker_base_image_pin",
+                "Container build file could not be read",
+                "Make the container build file readable.",
+            );
+        }
+    };
+
+    let uses_latest = contents
+        .lines()
+        .map(str::trim)
+        .any(|line| line.to_ascii_lowercase().starts_with("from ") && line.contains(":latest"));
+
+    if uses_latest {
+        warn(
+            "docker_base_image_pin",
+            "Container base image uses :latest",
+            "Pin base image tags to a specific version instead of :latest.",
+        )
+    } else {
+        pass(
+            "docker_base_image_pin",
+            "Container base image tags avoid :latest",
         )
     }
 }

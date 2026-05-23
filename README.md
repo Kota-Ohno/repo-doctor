@@ -16,6 +16,7 @@ files and ecosystem-specific metadata are present. It currently checks for:
 - Python package metadata when `pyproject.toml`, `setup.py`, or
   `requirements.txt` is detected
 - Go module metadata when `go.mod` is detected
+- Container metadata when Docker or Compose files are detected
 
 By default, `check` runs core repository checks plus auto-detected ecosystem
 profiles. Use `--profile generic` for language-independent checks only, or
@@ -40,6 +41,7 @@ cargo run -- check --profile rust
 cargo run -- check --profile node
 cargo run -- check --profile python
 cargo run -- check --profile go
+cargo run -- check --profile docker
 cargo run -- check --fail-on warn
 cargo c
 cargo lint

@@ -204,6 +204,7 @@ mod tests {
         assert!(!output.text.contains("node_"));
         assert!(!output.text.contains("python_"));
         assert!(!output.text.contains("go_"));
+        assert!(!output.text.contains("docker_"));
     }
 
     #[test]
@@ -273,6 +274,32 @@ requires = ["setuptools"]
 
         assert!(output.text.contains("[PASS] go_module"));
         assert!(output.text.contains("[PASS] go_version"));
+    }
+
+    #[test]
+    fn explicit_docker_profile_runs_container_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(temp_dir.path().join("Dockerfile"), "FROM alpine:3.20\n").unwrap();
+        fs::write(temp_dir.path().join(".dockerignore"), "target\n").unwrap();
+        fs::write(temp_dir.path().join("compose.yml"), "services: {}\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Docker, None).unwrap();
+
+        assert!(output.text.contains("[PASS] docker_build_file"));
+        assert!(output.text.contains("[PASS] docker_base_image_pin"));
+    }
+
+    #[test]
+    fn auto_profile_runs_docker_checks_when_dockerfile_exists() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(temp_dir.path().join("Dockerfile"), "FROM alpine:latest\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("Profiles: docker"));
+        assert!(output.text.contains("[WARN] docker_base_image_pin"));
     }
 
     #[test]
