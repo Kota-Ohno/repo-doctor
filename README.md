@@ -24,6 +24,7 @@ files are present. It currently checks for:
 cargo run -- check
 cargo run -- check /path/to/repo
 cargo run -- check --format json
+cargo run -- check --fail-on warn
 cargo c
 cargo lint
 cargo fmtc
@@ -41,6 +42,12 @@ Generate shell completions or a man page:
 cargo run -- completions bash
 cargo run -- man
 ```
+
+## JSON Output
+
+`--format json` emits `schema_version: 1`. Fields may be added in later minor
+versions, but existing rule IDs and field meanings should remain stable within
+schema version 1.
 
 ## Layout
 

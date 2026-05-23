@@ -26,3 +26,13 @@ fn check_outputs_json() {
         .stdout(predicate::str::contains("\"checks\""))
         .stdout(predicate::str::contains("\"id\": \"readme\""));
 }
+
+#[test]
+fn check_can_fail_on_warnings() {
+    let mut cmd = command();
+
+    cmd.args(["check", "--fail-on", "warn"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("[WARN] code_of_conduct"));
+}

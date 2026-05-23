@@ -11,7 +11,11 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
     let output = run(cli)?;
-    println!("{output}");
+    println!("{}", output.text);
+
+    if output.exit_code != 0 {
+        std::process::exit(output.exit_code);
+    }
 
     Ok(())
 }

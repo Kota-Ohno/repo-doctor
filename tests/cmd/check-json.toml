@@ -2,32 +2,85 @@ bin.name = "repo-doctor"
 args = "check --format json"
 stdout = """
 {
+  "schema_version": 1,
   "path": ".",
   "checks": [
     {
       "id": "readme",
       "status": "pass",
-      "message": "README is present"
+      "severity": "info",
+      "message": "README is present",
+      "remediation": "No action needed."
     },
     {
       "id": "license",
       "status": "pass",
-      "message": "License file is present"
+      "severity": "info",
+      "message": "License file is present",
+      "remediation": "No action needed."
     },
     {
       "id": "gitignore",
       "status": "pass",
-      "message": ".gitignore is present"
+      "severity": "info",
+      "message": ".gitignore is present",
+      "remediation": "No action needed."
     },
     {
       "id": "cargo_toml",
       "status": "pass",
-      "message": "Cargo.toml is present"
+      "severity": "info",
+      "message": "Cargo.toml is present",
+      "remediation": "No action needed."
     },
     {
       "id": "github_actions",
       "status": "pass",
-      "message": "GitHub Actions workflow directory is present"
+      "severity": "info",
+      "message": "GitHub Actions workflow file is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "contributing",
+      "status": "pass",
+      "severity": "info",
+      "message": "Contribution guide is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "code_of_conduct",
+      "status": "warn",
+      "severity": "warning",
+      "message": "Missing one of CODE_OF_CONDUCT.md, docs/CODE_OF_CONDUCT.md, .github/CODE_OF_CONDUCT.md",
+      "remediation": "Add one of CODE_OF_CONDUCT.md, docs/CODE_OF_CONDUCT.md, .github/CODE_OF_CONDUCT.md."
+    },
+    {
+      "id": "security_policy",
+      "status": "pass",
+      "severity": "info",
+      "message": "Security policy is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "issue_templates",
+      "status": "pass",
+      "severity": "info",
+      "message": "Issue template is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "pull_request_template",
+      "status": "pass",
+      "severity": "info",
+      "message": "Pull request template is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "changelog",
+      "status": "warn",
+      "severity": "warning",
+      "message": "Missing one of CHANGELOG.md, CHANGES.md, RELEASES.md, docs/CHANGELOG.md",
+      "remediation": "Add one of CHANGELOG.md, CHANGES.md, RELEASES.md, docs/CHANGELOG.md."
     }
   ]
 }

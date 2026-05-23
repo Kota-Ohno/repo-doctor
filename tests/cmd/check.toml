@@ -6,5 +6,11 @@ Repository: .
 [PASS] license: License file is present
 [PASS] gitignore: .gitignore is present
 [PASS] cargo_toml: Cargo.toml is present
-[PASS] github_actions: GitHub Actions workflow directory is present
+[PASS] github_actions: GitHub Actions workflow file is present
+[PASS] contributing: Contribution guide is present
+[WARN] code_of_conduct: Missing one of CODE_OF_CONDUCT.md, docs/CODE_OF_CONDUCT.md, .github/CODE_OF_CONDUCT.md
+[PASS] security_policy: Security policy is present
+[PASS] issue_templates: Issue template is present
+[PASS] pull_request_template: Pull request template is present
+[WARN] changelog: Missing one of CHANGELOG.md, CHANGES.md, RELEASES.md, docs/CHANGELOG.md
 """
