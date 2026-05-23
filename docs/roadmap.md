@@ -141,11 +141,13 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 
 ### P2 - Configuration and profiles
 
-- [ ] Add `repo-doctor.toml`.
-- [ ] Allow rules to be disabled with a required rationale.
-- [ ] Allow severity overrides by rule ID.
-- [ ] Add profiles: `rust-cli`, `rust-lib`, `oss`, `internal`, `strict`.
-- [ ] Add `repo-doctor init` to generate a starter config.
+- [x] Add `repo-doctor.toml`.
+- [x] Allow rules to be disabled with a required rationale.
+- [x] Allow severity overrides by rule ID.
+- [x] Allow config-driven profile selection.
+- [x] Add `repo-doctor init` to generate a starter config.
+- [ ] Add named policy presets such as `rust-cli`, `rust-lib`, `oss`,
+      `internal`, and `strict`.
 
 ### P2 - Automation outputs
 

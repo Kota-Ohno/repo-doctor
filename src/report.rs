@@ -220,6 +220,16 @@ pub struct Check {
     pub(crate) remediation: String,
 }
 
+impl Check {
+    pub(crate) fn id(&self) -> &'static str {
+        self.id
+    }
+
+    pub(crate) fn set_severity(&mut self, severity: Severity) {
+        self.severity = severity;
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CheckStatus {

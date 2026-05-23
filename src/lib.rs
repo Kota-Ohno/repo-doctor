@@ -5,6 +5,7 @@ use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 
 mod checks;
+mod config;
 mod core;
 mod profiles;
 mod report;
@@ -35,9 +36,20 @@ pub enum Command {
         #[arg(long, value_enum, default_value_t = Profile::Auto)]
         profile: Profile,
 
+        /// Config file path. Defaults to repo-doctor.toml in the repository root.
+        #[arg(long)]
+        config: Option<PathBuf>,
+
         /// Exit nonzero when the report contains findings at this level.
         #[arg(long, value_enum)]
         fail_on: Option<FailOn>,
+    },
+
+    /// Create a starter repo-doctor.toml.
+    Init {
+        /// Repository directory where repo-doctor.toml should be written.
+        #[arg(default_value = ".")]
+        path: PathBuf,
     },
 
     /// Generate shell completion scripts.
@@ -70,8 +82,10 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             path,
             format,
             profile,
+            config,
             fail_on,
-        } => check_repository(&path, format, profile, fail_on),
+        } => check_repository_with_config(&path, format, profile, config.as_deref(), fail_on),
+        Command::Init { path } => init_config(&path),
         Command::Completions { shell } => Ok(RunOutput {
             text: completions(shell)?,
             exit_code: 0,
@@ -89,9 +103,20 @@ pub fn check_repository(
     profile: Profile,
     fail_on: Option<FailOn>,
 ) -> Result<RunOutput> {
+    check_repository_with_config(path, format, profile, None, fail_on)
+}
+
+pub fn check_repository_with_config(
+    path: &Path,
+    format: OutputFormat,
+    profile: Profile,
+    config_path: Option<&Path>,
+    fail_on: Option<FailOn>,
+) -> Result<RunOutput> {
     validate_repository_path(path)?;
 
-    let report = inspect_repository(path, profile);
+    let config = config::load(path, config_path)?;
+    let report = inspect_repository_with_config(path, profile, &config);
     let exit_code = if fail_on == Some(FailOn::Warn) && report.has_warnings() {
         1
     } else {
@@ -110,11 +135,36 @@ pub fn check_repository(
 }
 
 pub fn inspect_repository(path: &Path, profile: Profile) -> report::Report {
+    inspect_repository_with_config(path, profile, &config::Config::default())
+}
+
+fn inspect_repository_with_config(
+    path: &Path,
+    profile: Profile,
+    config: &config::Config,
+) -> report::Report {
     let mut checks = core::inspect(path);
-    let selected_profiles = profiles::resolve(path, profile);
+    let selected_profiles = config.selected_profiles(path, profile);
     checks.extend(profiles::inspect(path, &selected_profiles));
+    checks = config.apply(checks);
 
     report::Report::new(path.to_path_buf(), selected_profiles, checks)
+}
+
+pub fn init_config(path: &Path) -> Result<RunOutput> {
+    validate_repository_path(path)?;
+
+    let config_path = path.join("repo-doctor.toml");
+    if config_path.exists() {
+        bail!("config already exists: {}", config_path.display());
+    }
+
+    std::fs::write(&config_path, config::STARTER_CONFIG)?;
+
+    Ok(RunOutput {
+        text: format!("Created {}", config_path.display()),
+        exit_code: 0,
+    })
 }
 
 fn validate_repository_path(path: &Path) -> Result<()> {
@@ -638,6 +688,71 @@ requires = ["setuptools"]
         assert_eq!(value.get("version").unwrap(), "2.1.0");
         assert_eq!(value["runs"][0]["tool"]["driver"]["name"], "repo-doctor");
         assert_eq!(value["runs"][0]["results"][0]["ruleId"], "readme");
+    }
+
+    #[test]
+    fn config_can_disable_rules_with_rationale() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("repo-doctor.toml"),
+            r#"[[rules]]
+id = "readme"
+disabled = true
+reason = "Fixture intentionally omits docs."
+"#,
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+
+        assert!(!output.text.contains("[WARN] readme"));
+        assert!(output.text.contains("[WARN] license"));
+    }
+
+    #[test]
+    fn config_rejects_disabled_rules_without_rationale_as_warning() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("repo-doctor.toml"),
+            r#"[[rules]]
+id = "readme"
+disabled = true
+"#,
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("[WARN] readme"));
+        assert!(output.text.contains("[WARN] config_disabled_rule_reason"));
+    }
+
+    #[test]
+    fn config_profiles_are_used_when_cli_profile_is_auto() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("repo-doctor.toml"),
+            r#"profiles = ["rust"]"#,
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("Profiles: rust"));
+        assert!(output.text.contains("[WARN] rust_cargo_toml"));
+    }
+
+    #[test]
+    fn init_creates_starter_config() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output = init_config(temp_dir.path()).unwrap();
+
+        assert!(output.text.contains("repo-doctor.toml"));
+        assert!(temp_dir.path().join("repo-doctor.toml").exists());
     }
 
     #[test]
