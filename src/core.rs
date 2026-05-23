@@ -86,6 +86,9 @@ pub(crate) fn inspect(path: &Path) -> Vec<Check> {
         ),
     ];
 
+    if let Some(check) = check_issue_template_frontmatter(path) {
+        checks.push(check);
+    }
     checks.extend(inspect_workflow_content(path));
     checks
 }
@@ -150,6 +153,9 @@ fn check_workflow_yaml_parse(workflows: &[(String, String)]) -> Check {
             "https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions",
         )
     } else {
+        let location = invalid
+            .first()
+            .and_then(|entry| entry.split_once(':').map(|(name, _)| name.to_owned()));
         warn(
             "github_actions_yaml",
             format!(
@@ -160,6 +166,10 @@ fn check_workflow_yaml_parse(workflows: &[(String, String)]) -> Check {
         )
         .with_documentation_url(
             "https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions",
+        )
+        .with_location(
+            location.unwrap_or_else(|| ".github/workflows".to_owned()),
+            None,
         )
     }
 }
@@ -321,6 +331,62 @@ fn check_dependency_update_config(path: &Path) -> Check {
             "dependency_update_config",
             "Dependabot or Renovate configuration is missing",
             "Add .github/dependabot.yml or a Renovate config to keep dependencies current.",
+        )
+    }
+}
+
+fn check_issue_template_frontmatter(path: &Path) -> Option<Check> {
+    let templates_dir = path.join(".github/ISSUE_TEMPLATE");
+    let Ok(entries) = templates_dir.read_dir() else {
+        return None;
+    };
+
+    let invalid = entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            let is_markdown = path
+                .extension()
+                .is_some_and(|extension| extension == "md" || extension == "markdown");
+            if !is_markdown {
+                return None;
+            }
+
+            let contents = std::fs::read_to_string(&path).ok()?;
+            let has_frontmatter = contents.trim_start().starts_with("---");
+            let has_name = contents
+                .lines()
+                .any(|line| line.trim_start().starts_with("name:"));
+            let has_about = contents
+                .lines()
+                .any(|line| line.trim_start().starts_with("about:"));
+
+            (!has_frontmatter || !has_name || !has_about).then(|| path.display().to_string())
+        })
+        .collect::<Vec<_>>();
+
+    if invalid.is_empty() {
+        Some(pass(
+            "issue_template_frontmatter",
+            "Issue template frontmatter is populated",
+        ))
+    } else {
+        Some(
+            warn(
+                "issue_template_frontmatter",
+                format!(
+                    "Issue templates have missing frontmatter fields: {}",
+                    invalid.join(", ")
+                ),
+                "Add YAML frontmatter with at least name and about to each issue template.",
+            )
+            .with_location(
+                invalid
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| ".github/ISSUE_TEMPLATE".to_owned()),
+                None,
+            ),
         )
     }
 }

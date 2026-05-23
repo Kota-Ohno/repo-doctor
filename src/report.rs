@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use serde_json::json;
@@ -145,15 +145,7 @@ impl Report {
                     "message": {
                         "text": check.message,
                     },
-                    "locations": [
-                        {
-                            "physicalLocation": {
-                                "artifactLocation": {
-                                    "uri": self.path.display().to_string(),
-                                },
-                            },
-                        },
-                    ],
+                    "locations": [sarif_location(&self.path, check.location.as_ref())],
                 })
             })
             .collect::<Vec<_>>();
@@ -220,6 +212,8 @@ pub struct Check {
     pub(crate) remediation: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) documentation_url: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) location: Option<Location>,
 }
 
 impl Check {
@@ -235,6 +229,21 @@ impl Check {
         self.documentation_url = Some(documentation_url);
         self
     }
+
+    pub(crate) fn with_location(mut self, path: impl Into<String>, line: Option<usize>) -> Self {
+        self.location = Some(Location {
+            path: path.into(),
+            line,
+        });
+        self
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct Location {
+    path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    line: Option<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -268,6 +277,7 @@ pub(crate) fn pass(id: &'static str, message: impl Into<String>) -> Check {
         message: message.into(),
         remediation: "No action needed.".to_owned(),
         documentation_url: None,
+        location: None,
     }
 }
 
@@ -283,6 +293,7 @@ pub(crate) fn warn(
         message: message.into(),
         remediation: remediation.into(),
         documentation_url: None,
+        location: None,
     }
 }
 
@@ -309,4 +320,21 @@ fn escape_github_annotation(value: &str) -> String {
         .replace('\n', "%0A")
         .replace(':', "%3A")
         .replace(',', "%2C")
+}
+
+fn sarif_location(repo_path: &Path, location: Option<&Location>) -> serde_json::Value {
+    let uri = location
+        .map(|location| location.path.clone())
+        .unwrap_or_else(|| repo_path.display().to_string());
+    let mut physical_location = json!({
+        "artifactLocation": {
+            "uri": uri,
+        },
+    });
+
+    if let Some(line) = location.and_then(|location| location.line) {
+        physical_location["region"] = json!({ "startLine": line });
+    }
+
+    json!({ "physicalLocation": physical_location })
 }

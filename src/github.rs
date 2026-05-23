@@ -27,6 +27,8 @@ pub(crate) fn inspect(repo: &str) -> Result<Report> {
     }
 
     checks.push(check_vulnerability_alerts(repo));
+    checks.extend(check_community_profile(repo));
+    checks.push(check_scorecard_link(repo));
 
     Ok(Report::new(PathBuf::from(repo), Vec::new(), checks))
 }
@@ -201,6 +203,73 @@ fn check_vulnerability_alerts(repo: &str) -> Check {
             "Enable Dependabot alerts, or run with a token that can read security settings.",
         )
     }
+}
+
+fn check_community_profile(repo: &str) -> Vec<Check> {
+    let endpoint = format!("repos/{repo}/community/profile");
+    let Ok(profile) = gh_json(&["api", &endpoint]) else {
+        return vec![warn(
+            "github_remote_community_profile",
+            "GitHub community profile is unavailable",
+            "Run with a token that can read the community profile API, or inspect the repository community profile in GitHub.",
+        )];
+    };
+
+    vec![
+        check_community_health_percentage(&profile),
+        check_community_profile_files(&profile),
+    ]
+}
+
+fn check_community_health_percentage(profile: &JsonValue) -> Check {
+    let health_percentage = profile
+        .get("health_percentage")
+        .and_then(JsonValue::as_u64)
+        .unwrap_or(0);
+
+    if health_percentage >= 80 {
+        pass(
+            "github_remote_community_health",
+            format!("GitHub community profile health is {health_percentage}%"),
+        )
+    } else {
+        warn(
+            "github_remote_community_health",
+            format!("GitHub community profile health is {health_percentage}%"),
+            "Review the GitHub community profile and fill missing community files.",
+        )
+    }
+}
+
+fn check_community_profile_files(profile: &JsonValue) -> Check {
+    let files = profile.get("files").and_then(JsonValue::as_object);
+    let has_readme = files
+        .and_then(|files| files.get("readme"))
+        .is_some_and(|value| !value.is_null());
+    let has_license = files
+        .and_then(|files| files.get("license"))
+        .is_some_and(|value| !value.is_null());
+
+    if has_readme && has_license {
+        pass(
+            "github_remote_community_files",
+            "GitHub community profile sees README and license",
+        )
+    } else {
+        warn(
+            "github_remote_community_files",
+            "GitHub community profile is missing README or license",
+            "Ensure GitHub recognizes the README and license files.",
+        )
+    }
+}
+
+fn check_scorecard_link(repo: &str) -> Check {
+    pass(
+        "github_remote_scorecard_link",
+        format!("OpenSSF Scorecard link: https://scorecard.dev/viewer/?uri=github.com/{repo}"),
+    )
+    .with_documentation_url("https://scorecard.dev/")
 }
 
 #[cfg(test)]

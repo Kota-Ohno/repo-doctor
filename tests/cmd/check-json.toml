@@ -8,9 +8,9 @@ stdout = """
     "rust"
   ],
   "summary": {
-    "pass": 30,
+    "pass": 31,
     "warn": 0,
-    "total": 30,
+    "total": 31,
     "score": 100
   },
   "checks": [
@@ -82,6 +82,13 @@ stdout = """
       "status": "pass",
       "severity": "info",
       "message": "Changelog or release notes are present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "issue_template_frontmatter",
+      "status": "pass",
+      "severity": "info",
+      "message": "Issue template frontmatter is populated",
       "remediation": "No action needed."
     },
     {

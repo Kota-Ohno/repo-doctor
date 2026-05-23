@@ -51,7 +51,7 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Check for issue templates under `.github/ISSUE_TEMPLATE`.
 - [x] Check for `.github/pull_request_template.md` or equivalent templates.
 - [x] Check for `CHANGELOG.md` or release notes.
-- [ ] Validate issue template frontmatter enough to catch empty placeholders.
+- [x] Validate issue template frontmatter enough to catch empty placeholders.
 
 ### P1 - Ecosystem profiles
 
@@ -155,17 +155,17 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Add `--format markdown` for PR comments and human reports.
 - [x] Add GitHub Actions annotation output.
 - [x] Add SARIF output after rule IDs and locations are stable.
-- [ ] Add file paths and line numbers where parsers provide them.
+- [x] Add file paths and line numbers where parsers provide them.
 
 ### P3 - Remote GitHub checks
 
 - [x] Add an explicit `repo-doctor github owner/repo` command.
-- [ ] Use GitHub community profile API as an optional comparison source.
+- [x] Use GitHub community profile API as an optional comparison source.
 - [x] Check default branch protection status.
 - [x] Check repository description and topics.
 - [x] Check repository security features where the token has permission.
 - [x] Check recent maintenance activity.
-- [ ] Add OpenSSF Scorecard comparison or link-out mode.
+- [x] Add OpenSSF Scorecard comparison or link-out mode.
 
 ## Out of scope for now
 

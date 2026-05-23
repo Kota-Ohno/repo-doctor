@@ -901,6 +901,7 @@ fn empty_check() -> Check {
         message: String::new(),
         remediation: String::new(),
         documentation_url: None,
+        location: None,
     }
 }
 

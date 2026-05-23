@@ -676,6 +676,22 @@ requires = ["setuptools"]
     }
 
     #[test]
+    fn warns_when_issue_template_frontmatter_is_missing() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp_dir.path().join(".github/ISSUE_TEMPLATE")).unwrap();
+        fs::write(
+            temp_dir.path().join(".github/ISSUE_TEMPLATE/bug_report.md"),
+            "# Bug\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("[WARN] issue_template_frontmatter"));
+    }
+
+    #[test]
     fn fail_on_warn_sets_nonzero_exit_code() {
         let temp_dir = tempfile::tempdir().unwrap();
 
