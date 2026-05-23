@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use serde::Deserialize;
 
 use crate::profiles::{self, Profile};
-use crate::report::{Check, Severity, warn};
+use crate::report::{self, Check, Severity, warn};
 
 pub(crate) const STARTER_CONFIG: &str = r#"# repo-doctor configuration
 # profiles is used only when the CLI profile is left as auto.
@@ -216,6 +216,34 @@ pub(crate) fn load(path: &Path, explicit_path: Option<&Path>) -> Result<Config> 
         .with_context(|| format!("failed to read config: {}", config_path.display()))?;
     toml::from_str(&contents)
         .with_context(|| format!("failed to parse config: {}", config_path.display()))
+}
+
+pub(crate) fn validate(path: &Path) -> Result<Vec<String>> {
+    let contents = std::fs::read_to_string(path)
+        .with_context(|| format!("failed to read config: {}", path.display()))?;
+    let config = toml::from_str::<Config>(&contents)
+        .with_context(|| format!("failed to parse config: {}", path.display()))?;
+    let known_rules = report::known_rules()
+        .iter()
+        .map(|rule| rule.id)
+        .collect::<HashSet<_>>();
+    let mut findings = Vec::new();
+
+    for rule in &config.rules {
+        if !known_rules.contains(rule.id.as_str()) {
+            findings.push(format!("unknown rule id: {}", rule.id));
+        }
+        if rule.disabled
+            && rule
+                .reason
+                .as_deref()
+                .is_none_or(|reason| reason.trim().is_empty())
+        {
+            findings.push(format!("disabled rule lacks rationale: {}", rule.id));
+        }
+    }
+
+    Ok(findings)
 }
 
 fn dedupe_profiles(profiles: Vec<Profile>) -> Vec<Profile> {

@@ -66,6 +66,85 @@ fn gh_status(args: &[&str]) -> bool {
         .is_ok_and(|output| output.status.success())
 }
 
+pub(crate) fn setup(
+    repo: &str,
+    topics: &[String],
+    homepage: Option<&str>,
+    branch_protection: bool,
+) -> Result<Vec<String>> {
+    validate_repo(repo)?;
+    let mut actions = Vec::new();
+
+    if !topics.is_empty() {
+        let mut args = vec!["repo", "edit", repo];
+        for topic in topics {
+            args.push("--add-topic");
+            args.push(topic.as_str());
+        }
+        gh_unit(&args)?;
+        actions.push(format!("set {} topic(s)", topics.len()));
+    }
+
+    if let Some(homepage) = homepage {
+        gh_unit(&["repo", "edit", repo, "--homepage", homepage])?;
+        actions.push("set homepage".to_owned());
+    }
+
+    gh_unit(&[
+        "api",
+        "-X",
+        "PUT",
+        &format!("repos/{repo}/vulnerability-alerts"),
+        "--silent",
+    ])?;
+    actions.push("enabled vulnerability alerts".to_owned());
+
+    if branch_protection {
+        let view = gh_json(&["repo", "view", repo, "--json", "defaultBranchRef"])?;
+        let branch = view
+            .get("defaultBranchRef")
+            .and_then(|branch| branch.get("name"))
+            .and_then(JsonValue::as_str)
+            .unwrap_or("main");
+        gh_unit(&[
+            "api",
+            "-X",
+            "PUT",
+            &format!("repos/{repo}/branches/{branch}/protection"),
+            "-H",
+            "Accept: application/vnd.github+json",
+            "-F",
+            "required_status_checks=null",
+            "-F",
+            "enforce_admins=false",
+            "-F",
+            "required_pull_request_reviews=null",
+            "-F",
+            "restrictions=null",
+            "--silent",
+        ])?;
+        actions.push(format!("enabled branch protection for {branch}"));
+    }
+
+    Ok(actions)
+}
+
+fn gh_unit(args: &[&str]) -> Result<()> {
+    let output = Command::new("gh")
+        .args(args)
+        .output()
+        .context("failed to execute gh CLI")?;
+
+    if !output.status.success() {
+        bail!(
+            "gh command failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+
+    Ok(())
+}
+
 fn inspect_view_payload(repo: &str, view: &JsonValue) -> Vec<Check> {
     vec![
         pass(

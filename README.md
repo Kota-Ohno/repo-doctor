@@ -43,7 +43,9 @@ cargo run -- check --format github
 cargo run -- check --format sarif
 cargo run -- check --format compact
 cargo run -- check --format junit
+cargo run -- check --format html
 cargo run -- check --config repo-doctor.toml
+cargo run -- check --baseline repo-doctor-baseline.json
 cargo run -- check --warnings-only
 cargo run -- check --min-score 90
 cargo run -- check --profile generic
@@ -64,6 +66,12 @@ cargo run -- check --profile kotlin
 cargo run -- check --fail-on warn
 cargo run -- github Kota-Ohno/repo-doctor
 cargo run -- github Kota-Ohno/repo-doctor --warnings-only
+cargo run -- github-setup Kota-Ohno/repo-doctor --topic rust --topic cli --homepage https://github.com/Kota-Ohno/repo-doctor --branch-protection
+cargo run -- baseline > repo-doctor-baseline.json
+cargo run -- batch repos.txt
+cargo run -- explain readme
+cargo run -- config-validate repo-doctor.toml
+cargo run -- init --full
 cargo run -- list-profiles
 cargo run -- list-rules
 cargo test
@@ -126,6 +134,7 @@ For CI quality gates, combine a machine-readable output with an exit policy:
 repo-doctor check --format github --fail-on warn
 repo-doctor check --format compact --min-score 90
 repo-doctor check --format junit > repo-doctor-junit.xml
+repo-doctor check --format html > repo-doctor.html
 ```
 
 For config authoring:
@@ -133,7 +142,16 @@ For config authoring:
 ```bash
 repo-doctor list-profiles
 repo-doctor list-rules
+repo-doctor explain readme
+repo-doctor config-validate repo-doctor.toml
 repo-doctor check --warnings-only
+```
+
+For incremental adoption:
+
+```bash
+repo-doctor baseline > repo-doctor-baseline.json
+repo-doctor check --baseline repo-doctor-baseline.json --fail-on warn
 ```
 
 ## Layout

@@ -257,6 +257,28 @@ impl Report {
         self.summary.warn
     }
 
+    pub fn warning_ids(&self) -> Vec<&'static str> {
+        self.checks
+            .iter()
+            .filter(|check| matches!(check.status, CheckStatus::Warn))
+            .map(|check| check.id)
+            .collect()
+    }
+
+    pub fn suppress_warning_ids(&self, ignored_ids: &[String]) -> Self {
+        let checks = self
+            .checks
+            .iter()
+            .filter(|check| {
+                !matches!(check.status, CheckStatus::Warn)
+                    || !ignored_ids.iter().any(|ignored| ignored == check.id)
+            })
+            .cloned()
+            .collect();
+
+        Self::new(self.path.clone(), self.selected_profiles.clone(), checks)
+    }
+
     pub fn warnings_only(&self) -> Self {
         let checks = self
             .checks
@@ -335,6 +357,60 @@ impl Report {
         }
 
         lines.join("\n")
+    }
+
+    pub fn format_html(&self) -> String {
+        let rows = self
+            .checks
+            .iter()
+            .map(|check| {
+                format!(
+                    "<tr class=\"{}\"><td>{}</td><td><code>{}</code></td><td>{}</td><td>{}</td></tr>",
+                    check.status.html_class(),
+                    check.status.markdown_label(),
+                    escape_html(check.id),
+                    escape_html(&check.message),
+                    escape_html(&check.remediation)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        format!(
+            r#"<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>repo-doctor report</title>
+  <style>
+    body {{ font-family: system-ui, sans-serif; margin: 2rem; color: #202124; }}
+    table {{ border-collapse: collapse; width: 100%; }}
+    th, td {{ border-bottom: 1px solid #ddd; padding: 0.5rem; text-align: left; vertical-align: top; }}
+    .pass td:first-child {{ color: #137333; font-weight: 700; }}
+    .warn td:first-child {{ color: #b06000; font-weight: 700; }}
+    code {{ background: #f1f3f4; padding: 0.1rem 0.25rem; border-radius: 4px; }}
+  </style>
+</head>
+<body>
+  <h1>repo-doctor report</h1>
+  <p><strong>Repository:</strong> {}</p>
+  <p><strong>Profiles:</strong> {}</p>
+  <p><strong>Summary:</strong> {} passed, {} warnings, score {}</p>
+  <table>
+    <thead><tr><th>Status</th><th>Rule</th><th>Message</th><th>Remediation</th></tr></thead>
+    <tbody>
+{}
+    </tbody>
+  </table>
+</body>
+</html>"#,
+            escape_html(&self.path.display().to_string()),
+            escape_html(&format_profiles(&self.selected_profiles)),
+            self.summary.pass,
+            self.summary.warn,
+            self.summary.score,
+            rows
+        )
     }
 
     pub fn format_github_annotations(&self) -> String {
@@ -542,6 +618,13 @@ impl CheckStatus {
             CheckStatus::Warn => "WARN",
         }
     }
+
+    fn html_class(&self) -> &'static str {
+        match self {
+            CheckStatus::Pass => "pass",
+            CheckStatus::Warn => "warn",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
@@ -611,6 +694,10 @@ fn escape_xml(value: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
         .replace('\'', "&apos;")
+}
+
+fn escape_html(value: &str) -> String {
+    escape_xml(value)
 }
 
 fn sarif_location(repo_path: &Path, location: Option<&Location>) -> serde_json::Value {
