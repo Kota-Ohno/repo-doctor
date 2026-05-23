@@ -10,6 +10,11 @@ files are present. It currently checks for:
 - `.gitignore`
 - `Cargo.toml`
 - `.github/workflows`
+- community health files such as contributing, security, issue, PR, conduct,
+  and changelog files
+- Rust package metadata in `Cargo.toml`
+- `Cargo.lock`
+- Rust build output in `.gitignore`
 
 ## Requirements
 

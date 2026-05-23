@@ -48,14 +48,14 @@ OpenSSF Scorecard or a full SCM security scanner.
 
 ### P1 - Rust project hygiene
 
-- [ ] Parse `Cargo.toml` with a TOML parser instead of treating it as a file.
-- [ ] Check package metadata: `description`, `license` or `license-file`,
+- [x] Parse `Cargo.toml` with a TOML parser instead of treating it as a file.
+- [x] Check package metadata: `description`, `license` or `license-file`,
       `repository`, `readme`, `rust-version`.
-- [ ] Check `[package]` includes `name`, `version`, and `edition`.
-- [ ] Check paths referenced by `readme` and `license-file` exist.
-- [ ] Warn when binary crates lack `Cargo.lock`.
+- [x] Check `[package]` includes `name`, `version`, and `edition`.
+- [x] Check paths referenced by `readme` and `license-file` exist.
+- [x] Warn when binary crates lack `Cargo.lock`.
 - [ ] Detect workspace roots and member crates.
-- [ ] Check `.gitignore` includes Rust build artifacts such as `/target`.
+- [x] Check `.gitignore` includes Rust build artifacts such as `/target`.
 - [ ] Check README includes basic install, usage, and development commands.
 - [ ] Check README command examples mention the package or binary name.
 

@@ -127,7 +127,7 @@ pub fn check_repository(
 }
 
 pub fn inspect_repository(path: &Path) -> Report {
-    let checks = vec![
+    let mut checks = vec![
         check_any_file(
             path,
             "readme",
@@ -210,6 +210,8 @@ pub fn inspect_repository(path: &Path) -> Report {
         ),
     ];
 
+    checks.extend(inspect_rust_project(path));
+
     Report {
         schema_version: 1,
         path: path.to_path_buf(),
@@ -240,21 +242,13 @@ fn validate_repository_path(path: &Path) -> Result<()> {
 fn check_file(path: &Path, id: &'static str, relative: &str, pass_message: &str) -> Check {
     let candidate = path.join(relative);
     if candidate.exists() {
-        Check {
-            id,
-            status: CheckStatus::Pass,
-            severity: Severity::Info,
-            message: pass_message.to_owned(),
-            remediation: "No action needed.".to_owned(),
-        }
+        pass(id, pass_message)
     } else {
-        Check {
+        warn(
             id,
-            status: CheckStatus::Warn,
-            severity: Severity::Warning,
-            message: format!("Missing {relative}"),
-            remediation: format!("Add {relative}."),
-        }
+            format!("Missing {relative}"),
+            format!("Add {relative}."),
+        )
     }
 }
 
@@ -268,21 +262,13 @@ fn check_any_file(
         .iter()
         .any(|candidate| path.join(candidate).exists())
     {
-        Check {
-            id,
-            status: CheckStatus::Pass,
-            severity: Severity::Info,
-            message: pass_message.to_owned(),
-            remediation: "No action needed.".to_owned(),
-        }
+        pass(id, pass_message)
     } else {
-        Check {
+        warn(
             id,
-            status: CheckStatus::Warn,
-            severity: Severity::Warning,
-            message: format!("Missing one of {}", candidates.join(", ")),
-            remediation: format!("Add one of {}.", candidates.join(", ")),
-        }
+            format!("Missing one of {}", candidates.join(", ")),
+            format!("Add one of {}.", candidates.join(", ")),
+        )
     }
 }
 
@@ -301,22 +287,13 @@ fn check_workflows(path: &Path, id: &'static str, pass_message: &str) -> Check {
         .unwrap_or(false);
 
     if has_workflow {
-        Check {
-            id,
-            status: CheckStatus::Pass,
-            severity: Severity::Info,
-            message: pass_message.to_owned(),
-            remediation: "No action needed.".to_owned(),
-        }
+        pass(id, pass_message)
     } else {
-        Check {
+        warn(
             id,
-            status: CheckStatus::Warn,
-            severity: Severity::Warning,
-            message: "Missing .github/workflows/*.yml or *.yaml".to_owned(),
-            remediation: "Add at least one GitHub Actions workflow file under .github/workflows."
-                .to_owned(),
-        }
+            "Missing .github/workflows/*.yml or *.yaml",
+            "Add at least one GitHub Actions workflow file under .github/workflows.",
+        )
     }
 }
 
@@ -337,21 +314,184 @@ fn check_directory_has_file(
         .unwrap_or(false);
 
     if has_file {
-        Check {
+        pass(id, pass_message)
+    } else {
+        warn(
             id,
+            format!("Missing files under {relative}"),
+            format!("Add at least one file under {relative}."),
+        )
+    }
+}
+
+fn inspect_rust_project(path: &Path) -> Vec<Check> {
+    let cargo_toml_path = path.join("Cargo.toml");
+    let manifest = match std::fs::read_to_string(&cargo_toml_path) {
+        Ok(contents) => contents,
+        Err(_) => return Vec::new(),
+    };
+
+    let parsed = match toml::from_str::<toml::Value>(&manifest) {
+        Ok(value) => value,
+        Err(error) => {
+            return vec![warn(
+                "cargo_toml_parse",
+                format!("Cargo.toml could not be parsed: {error}"),
+                "Fix Cargo.toml so it is valid TOML.",
+            )];
+        }
+    };
+
+    let package = parsed.get("package").and_then(toml::Value::as_table);
+    let Some(package) = package else {
+        return vec![warn(
+            "cargo_package",
+            "Cargo.toml is missing [package]",
+            "Add a [package] section or run repo-doctor from a package crate.",
+        )];
+    };
+
+    let mut checks = vec![
+        check_manifest_string(package, "cargo_name", "name"),
+        check_manifest_string(package, "cargo_version", "version"),
+        check_manifest_string(package, "cargo_edition", "edition"),
+        check_manifest_string(package, "cargo_rust_version", "rust-version"),
+        check_manifest_string(package, "cargo_description", "description"),
+        check_manifest_string(package, "cargo_repository", "repository"),
+        check_manifest_string(package, "cargo_readme", "readme"),
+        check_cargo_license(package),
+        check_manifest_path(path, package, "cargo_readme_path", "readme"),
+        check_manifest_path(path, package, "cargo_license_file_path", "license-file"),
+        check_cargo_lock(path),
+        check_gitignore_target(path),
+    ];
+
+    checks.retain(|check| !check.id.is_empty());
+    checks
+}
+
+fn check_manifest_string(
+    package: &toml::map::Map<String, toml::Value>,
+    id: &'static str,
+    key: &'static str,
+) -> Check {
+    if package
+        .get(key)
+        .and_then(toml::Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty())
+    {
+        pass(id, format!("Cargo package `{key}` is set"))
+    } else {
+        warn(
+            id,
+            format!("Cargo package `{key}` is missing"),
+            format!("Set `package.{key}` in Cargo.toml."),
+        )
+    }
+}
+
+fn check_cargo_license(package: &toml::map::Map<String, toml::Value>) -> Check {
+    let has_license = ["license", "license-file"].iter().any(|key| {
+        package
+            .get(*key)
+            .and_then(toml::Value::as_str)
+            .is_some_and(|value| !value.trim().is_empty())
+    });
+
+    if has_license {
+        pass("cargo_license", "Cargo package license metadata is set")
+    } else {
+        warn(
+            "cargo_license",
+            "Cargo package license metadata is missing",
+            "Set `package.license` or `package.license-file` in Cargo.toml.",
+        )
+    }
+}
+
+fn check_manifest_path(
+    path: &Path,
+    package: &toml::map::Map<String, toml::Value>,
+    id: &'static str,
+    key: &'static str,
+) -> Check {
+    let Some(relative) = package.get(key).and_then(toml::Value::as_str) else {
+        return Check {
+            id: "",
             status: CheckStatus::Pass,
             severity: Severity::Info,
-            message: pass_message.to_owned(),
-            remediation: "No action needed.".to_owned(),
-        }
+            message: String::new(),
+            remediation: String::new(),
+        };
+    };
+
+    if path.join(relative).exists() {
+        pass(id, format!("Cargo package `{key}` path exists"))
     } else {
-        Check {
+        warn(
             id,
-            status: CheckStatus::Warn,
-            severity: Severity::Warning,
-            message: format!("Missing files under {relative}"),
-            remediation: format!("Add at least one file under {relative}."),
+            format!("Cargo package `{key}` path does not exist: {relative}"),
+            format!("Create {relative} or update `package.{key}` in Cargo.toml."),
+        )
+    }
+}
+
+fn check_cargo_lock(path: &Path) -> Check {
+    if path.join("Cargo.lock").exists() {
+        pass("cargo_lock", "Cargo.lock is present")
+    } else {
+        warn(
+            "cargo_lock",
+            "Cargo.lock is missing",
+            "Commit Cargo.lock for binary applications.",
+        )
+    }
+}
+
+fn check_gitignore_target(path: &Path) -> Check {
+    let gitignore = match std::fs::read_to_string(path.join(".gitignore")) {
+        Ok(contents) => contents,
+        Err(_) => {
+            return warn(
+                "gitignore_target",
+                ".gitignore could not be read",
+                "Add a readable .gitignore containing /target.",
+            );
         }
+    };
+
+    if gitignore
+        .lines()
+        .map(str::trim)
+        .any(|line| matches!(line, "target" | "target/" | "/target" | "/target/"))
+    {
+        pass("gitignore_target", ".gitignore excludes Rust build output")
+    } else {
+        warn(
+            "gitignore_target",
+            ".gitignore does not exclude Rust build output",
+            "Add /target to .gitignore.",
+        )
+    }
+}
+
+fn pass(id: &'static str, message: impl Into<String>) -> Check {
+    Check {
+        id,
+        status: CheckStatus::Pass,
+        severity: Severity::Info,
+        message: message.into(),
+        remediation: "No action needed.".to_owned(),
+    }
+}
+
+fn warn(id: &'static str, message: impl Into<String>, remediation: impl Into<String>) -> Check {
+    Check {
+        id,
+        status: CheckStatus::Warn,
+        severity: Severity::Warning,
+        message: message.into(),
+        remediation: remediation.into(),
     }
 }
 
@@ -399,7 +539,20 @@ mod tests {
     fn reports_present_and_missing_files_as_text() {
         let temp_dir = tempfile::tempdir().unwrap();
         fs::write(temp_dir.path().join("README.md"), "# Test\n").unwrap();
-        fs::write(temp_dir.path().join("Cargo.toml"), "[package]\n").unwrap();
+        fs::write(
+            temp_dir.path().join("Cargo.toml"),
+            r#"[package]
+name = "test"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+description = "Test package"
+repository = "https://example.com/test"
+readme = "README.md"
+license = "MIT"
+"#,
+        )
+        .unwrap();
 
         let output = check_repository(temp_dir.path(), OutputFormat::Text, None).unwrap();
 
@@ -498,7 +651,20 @@ mod tests {
         fs::write(temp_dir.path().join("README.md"), "# Test\n").unwrap();
         fs::write(temp_dir.path().join("LICENSE"), "MIT\n").unwrap();
         fs::write(temp_dir.path().join(".gitignore"), "/target\n").unwrap();
-        fs::write(temp_dir.path().join("Cargo.toml"), "[package]\n").unwrap();
+        fs::write(
+            temp_dir.path().join("Cargo.toml"),
+            r#"[package]
+name = "test"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+description = "Test package"
+repository = "https://example.com/test"
+readme = "README.md"
+license = "MIT"
+"#,
+        )
+        .unwrap();
         fs::create_dir_all(temp_dir.path().join(".github/workflows")).unwrap();
         fs::write(
             temp_dir.path().join(".github/workflows/ci.yml"),
@@ -603,6 +769,83 @@ mod tests {
             "remediation": "Add one of CHANGELOG.md, CHANGES.md, RELEASES.md, docs/CHANGELOG.md.",
             "severity": "warning",
             "status": "warn"
+          },
+          {
+            "id": "cargo_name",
+            "message": "Cargo package `name` is set",
+            "remediation": "No action needed.",
+            "severity": "info",
+            "status": "pass"
+          },
+          {
+            "id": "cargo_version",
+            "message": "Cargo package `version` is set",
+            "remediation": "No action needed.",
+            "severity": "info",
+            "status": "pass"
+          },
+          {
+            "id": "cargo_edition",
+            "message": "Cargo package `edition` is set",
+            "remediation": "No action needed.",
+            "severity": "info",
+            "status": "pass"
+          },
+          {
+            "id": "cargo_rust_version",
+            "message": "Cargo package `rust-version` is set",
+            "remediation": "No action needed.",
+            "severity": "info",
+            "status": "pass"
+          },
+          {
+            "id": "cargo_description",
+            "message": "Cargo package `description` is set",
+            "remediation": "No action needed.",
+            "severity": "info",
+            "status": "pass"
+          },
+          {
+            "id": "cargo_repository",
+            "message": "Cargo package `repository` is set",
+            "remediation": "No action needed.",
+            "severity": "info",
+            "status": "pass"
+          },
+          {
+            "id": "cargo_readme",
+            "message": "Cargo package `readme` is set",
+            "remediation": "No action needed.",
+            "severity": "info",
+            "status": "pass"
+          },
+          {
+            "id": "cargo_license",
+            "message": "Cargo package license metadata is set",
+            "remediation": "No action needed.",
+            "severity": "info",
+            "status": "pass"
+          },
+          {
+            "id": "cargo_readme_path",
+            "message": "Cargo package `readme` path exists",
+            "remediation": "No action needed.",
+            "severity": "info",
+            "status": "pass"
+          },
+          {
+            "id": "cargo_lock",
+            "message": "Cargo.lock is missing",
+            "remediation": "Commit Cargo.lock for binary applications.",
+            "severity": "warning",
+            "status": "warn"
+          },
+          {
+            "id": "gitignore_target",
+            "message": ".gitignore excludes Rust build output",
+            "remediation": "No action needed.",
+            "severity": "info",
+            "status": "pass"
           }
         ]
         "###);

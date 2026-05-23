@@ -81,6 +81,83 @@ stdout = """
       "severity": "info",
       "message": "Changelog or release notes are present",
       "remediation": "No action needed."
+    },
+    {
+      "id": "cargo_name",
+      "status": "pass",
+      "severity": "info",
+      "message": "Cargo package `name` is set",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "cargo_version",
+      "status": "pass",
+      "severity": "info",
+      "message": "Cargo package `version` is set",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "cargo_edition",
+      "status": "pass",
+      "severity": "info",
+      "message": "Cargo package `edition` is set",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "cargo_rust_version",
+      "status": "pass",
+      "severity": "info",
+      "message": "Cargo package `rust-version` is set",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "cargo_description",
+      "status": "pass",
+      "severity": "info",
+      "message": "Cargo package `description` is set",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "cargo_repository",
+      "status": "pass",
+      "severity": "info",
+      "message": "Cargo package `repository` is set",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "cargo_readme",
+      "status": "pass",
+      "severity": "info",
+      "message": "Cargo package `readme` is set",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "cargo_license",
+      "status": "pass",
+      "severity": "info",
+      "message": "Cargo package license metadata is set",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "cargo_readme_path",
+      "status": "pass",
+      "severity": "info",
+      "message": "Cargo package `readme` path exists",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "cargo_lock",
+      "status": "pass",
+      "severity": "info",
+      "message": "Cargo.lock is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "gitignore_target",
+      "status": "pass",
+      "severity": "info",
+      "message": ".gitignore excludes Rust build output",
+      "remediation": "No action needed."
     }
   ]
 }
