@@ -6,6 +6,8 @@ This repository is checked with `repo-doctor github Kota-Ohno/repo-doctor`.
 
 - Repository topics are set for discoverability.
 - Dependabot vulnerability alerts are enabled.
+- Repository homepage is set.
+- Initial GitHub release `v0.1.0` exists.
 
 ## Branch Protection
 
