@@ -618,6 +618,39 @@ requires = ["setuptools"]
     }
 
     #[test]
+    fn warns_when_workflow_yaml_is_invalid() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp_dir.path().join(".github/workflows")).unwrap();
+        fs::write(
+            temp_dir.path().join(".github/workflows/ci.yml"),
+            "name: [broken\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("[WARN] github_actions_yaml"));
+    }
+
+    #[test]
+    fn warns_when_rust_ci_commands_are_missing() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        write_rust_fixture(temp_dir.path());
+        fs::create_dir_all(temp_dir.path().join(".github/workflows")).unwrap();
+        fs::write(
+            temp_dir.path().join(".github/workflows/ci.yml"),
+            "on:\n  pull_request:\n  push:\npermissions: {}\njobs: {}\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("[WARN] github_actions_rust_ci"));
+    }
+
+    #[test]
     fn fail_on_warn_sets_nonzero_exit_code() {
         let temp_dir = tempfile::tempdir().unwrap();
 

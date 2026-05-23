@@ -8,9 +8,9 @@ stdout = """
     "rust"
   ],
   "summary": {
-    "pass": 27,
+    "pass": 30,
     "warn": 0,
-    "total": 27,
+    "total": 30,
     "score": 100
   },
   "checks": [
@@ -85,6 +85,13 @@ stdout = """
       "remediation": "No action needed."
     },
     {
+      "id": "github_actions_yaml",
+      "status": "pass",
+      "severity": "info",
+      "message": "GitHub Actions workflows parse as YAML",
+      "remediation": "No action needed."
+    },
+    {
       "id": "github_actions_triggers",
       "status": "pass",
       "severity": "info",
@@ -110,6 +117,20 @@ stdout = """
       "status": "pass",
       "severity": "info",
       "message": "GitHub Actions avoid floating action refs",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "github_actions_rust_ci",
+      "status": "pass",
+      "severity": "info",
+      "message": "GitHub Actions include Rust fmt, clippy, and test commands",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "dependency_update_config",
+      "status": "pass",
+      "severity": "info",
+      "message": "Dependency update configuration is present",
       "remediation": "No action needed."
     },
     {

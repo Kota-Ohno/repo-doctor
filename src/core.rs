@@ -97,10 +97,13 @@ fn inspect_workflow_content(path: &Path) -> Vec<Check> {
     }
 
     vec![
+        check_workflow_yaml_parse(&workflows),
         check_workflow_push_and_pull_request(&workflows),
         check_workflow_permissions(&workflows),
         check_workflow_pull_request_target(&workflows),
         check_workflow_floating_action_refs(&workflows),
+        check_rust_ci_commands(path, &workflows),
+        check_dependency_update_config(path),
     ]
 }
 
@@ -126,6 +129,33 @@ fn read_workflows(path: &Path) -> Vec<(String, String)> {
             Some((name, contents))
         })
         .collect()
+}
+
+fn check_workflow_yaml_parse(workflows: &[(String, String)]) -> Check {
+    let invalid = workflows
+        .iter()
+        .filter_map(|(name, contents)| {
+            yaml_rust2::YamlLoader::load_from_str(contents)
+                .err()
+                .map(|error| format!("{name}: {error}"))
+        })
+        .collect::<Vec<_>>();
+
+    if invalid.is_empty() {
+        pass(
+            "github_actions_yaml",
+            "GitHub Actions workflows parse as YAML",
+        )
+    } else {
+        warn(
+            "github_actions_yaml",
+            format!(
+                "GitHub Actions workflows contain invalid YAML: {}",
+                invalid.join(", ")
+            ),
+            "Fix workflow syntax so GitHub Actions can load the files.",
+        )
+    }
 }
 
 fn check_workflow_push_and_pull_request(workflows: &[(String, String)]) -> Check {
@@ -227,6 +257,64 @@ fn check_workflow_floating_action_refs(workflows: &[(String, String)]) -> Check 
                 floating_refs.join(", ")
             ),
             "Pin action refs to version tags or commit SHAs instead of main, master, or latest.",
+        )
+    }
+}
+
+fn check_rust_ci_commands(path: &Path, workflows: &[(String, String)]) -> Check {
+    if !path.join("Cargo.toml").exists() {
+        return pass(
+            "github_actions_rust_ci",
+            "Rust CI command check is not applicable",
+        );
+    }
+
+    let all_workflows = workflows
+        .iter()
+        .map(|(_, contents)| contents.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let has_fmt = all_workflows.contains("cargo fmt")
+        && (all_workflows.contains("--check") || all_workflows.contains("fmtc"));
+    let has_clippy = all_workflows.contains("cargo clippy") || all_workflows.contains("lint");
+    let has_tests = all_workflows.contains("cargo test") || all_workflows.contains("cargo nextest");
+
+    if has_fmt && has_clippy && has_tests {
+        pass(
+            "github_actions_rust_ci",
+            "GitHub Actions include Rust fmt, clippy, and test commands",
+        )
+    } else {
+        warn(
+            "github_actions_rust_ci",
+            "GitHub Actions are missing Rust fmt, clippy, or test commands",
+            "Add cargo fmt --all --check, cargo clippy, and cargo test or cargo nextest to CI.",
+        )
+    }
+}
+
+fn check_dependency_update_config(path: &Path) -> Check {
+    let has_dependabot = path.join(".github/dependabot.yml").exists()
+        || path.join(".github/dependabot.yaml").exists();
+    let has_renovate = [
+        "renovate.json",
+        "renovate.json5",
+        ".github/renovate.json",
+        ".github/renovate.json5",
+    ]
+    .iter()
+    .any(|candidate| path.join(candidate).exists());
+
+    if has_dependabot || has_renovate {
+        pass(
+            "dependency_update_config",
+            "Dependency update configuration is present",
+        )
+    } else {
+        warn(
+            "dependency_update_config",
+            "Dependabot or Renovate configuration is missing",
+            "Add .github/dependabot.yml or a Renovate config to keep dependencies current.",
         )
     }
 }
