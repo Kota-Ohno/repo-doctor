@@ -146,6 +146,9 @@ fn check_workflow_yaml_parse(workflows: &[(String, String)]) -> Check {
             "github_actions_yaml",
             "GitHub Actions workflows parse as YAML",
         )
+        .with_documentation_url(
+            "https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions",
+        )
     } else {
         warn(
             "github_actions_yaml",
@@ -154,6 +157,9 @@ fn check_workflow_yaml_parse(workflows: &[(String, String)]) -> Check {
                 invalid.join(", ")
             ),
             "Fix workflow syntax so GitHub Actions can load the files.",
+        )
+        .with_documentation_url(
+            "https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions",
         )
     }
 }

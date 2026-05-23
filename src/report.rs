@@ -218,6 +218,8 @@ pub struct Check {
     pub(crate) severity: Severity,
     pub(crate) message: String,
     pub(crate) remediation: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) documentation_url: Option<&'static str>,
 }
 
 impl Check {
@@ -227,6 +229,11 @@ impl Check {
 
     pub(crate) fn set_severity(&mut self, severity: Severity) {
         self.severity = severity;
+    }
+
+    pub(crate) fn with_documentation_url(mut self, documentation_url: &'static str) -> Self {
+        self.documentation_url = Some(documentation_url);
+        self
     }
 }
 
@@ -260,6 +267,7 @@ pub(crate) fn pass(id: &'static str, message: impl Into<String>) -> Check {
         severity: Severity::Info,
         message: message.into(),
         remediation: "No action needed.".to_owned(),
+        documentation_url: None,
     }
 }
 
@@ -274,6 +282,7 @@ pub(crate) fn warn(
         severity: Severity::Warning,
         message: message.into(),
         remediation: remediation.into(),
+        documentation_url: None,
     }
 }
 

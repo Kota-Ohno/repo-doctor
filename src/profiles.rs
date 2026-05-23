@@ -900,6 +900,7 @@ fn empty_check() -> Check {
         severity: crate::report::Severity::Info,
         message: String::new(),
         remediation: String::new(),
+        documentation_url: None,
     }
 }
 

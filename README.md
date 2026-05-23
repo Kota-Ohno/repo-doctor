@@ -102,7 +102,7 @@ severity = "info"
 
 `--format json` emits `schema_version: 1`. Fields may be added in later minor
 versions, but existing rule IDs and field meanings should remain stable within
-schema version 1.
+schema version 1. See [docs/report-contract.md](docs/report-contract.md).
 
 ## Remote GitHub Checks
 

@@ -32,6 +32,7 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Add a JSON schema version or documented compatibility policy.
 - [x] Add severity to checks.
 - [x] Add remediation text to each check.
+- [x] Add optional documentation URL support for checks.
 - [x] Add nonzero exit codes with `--fail-on warn`.
 - [x] Validate the target path exists and is a directory.
 - [x] Keep JSON output stable and document the report schema.

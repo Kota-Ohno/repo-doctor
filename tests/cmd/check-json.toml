@@ -89,7 +89,8 @@ stdout = """
       "status": "pass",
       "severity": "info",
       "message": "GitHub Actions workflows parse as YAML",
-      "remediation": "No action needed."
+      "remediation": "No action needed.",
+      "documentation_url": "https://docs.github.com/actions/using-workflows/workflow-syntax-for-github-actions"
     },
     {
       "id": "github_actions_triggers",
