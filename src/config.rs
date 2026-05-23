@@ -11,6 +11,9 @@ pub(crate) const STARTER_CONFIG: &str = r#"# repo-doctor configuration
 # profiles is used only when the CLI profile is left as auto.
 # profiles = ["auto"]
 
+# Policy presets tune generic rules without changing the report schema.
+# presets = ["oss"]
+
 # Rules can be disabled only with a rationale.
 # [[rules]]
 # id = "changelog"
@@ -27,7 +30,19 @@ pub(crate) const STARTER_CONFIG: &str = r#"# repo-doctor configuration
 pub(crate) struct Config {
     profiles: Option<Vec<Profile>>,
     #[serde(default)]
+    presets: Vec<Preset>,
+    #[serde(default)]
     rules: Vec<RuleConfig>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum Preset {
+    RustCli,
+    RustLib,
+    Oss,
+    Internal,
+    Strict,
 }
 
 #[derive(Debug, Deserialize)]
@@ -52,11 +67,15 @@ impl Config {
             return profiles::resolve(path, cli_profile);
         }
 
+        let mut selected = self.preset_profiles();
         let Some(configured) = &self.profiles else {
-            return profiles::resolve(path, cli_profile);
+            if selected.is_empty() {
+                return profiles::resolve(path, cli_profile);
+            }
+            selected.extend(profiles::resolve(path, cli_profile));
+            return dedupe_profiles(selected);
         };
 
-        let mut selected = Vec::new();
         for profile in configured {
             match profile {
                 Profile::Auto => selected.extend(profiles::resolve(path, Profile::Auto)),
@@ -70,12 +89,13 @@ impl Config {
 
     pub(crate) fn apply(&self, checks: Vec<Check>) -> Vec<Check> {
         let disabled = self.disabled_rules_with_reason();
+        let preset_disabled = self.preset_disabled_rules();
         let invalid_disabled = self.disabled_rules_without_reason();
         let severity_overrides = self.severity_overrides();
 
         let mut configured = checks
             .into_iter()
-            .filter(|check| !disabled.contains(check.id()))
+            .filter(|check| !disabled.contains(check.id()) && !preset_disabled.contains(check.id()))
             .map(|mut check| {
                 if let Some(severity) = severity_overrides.get(check.id()) {
                     check.set_severity(*severity);
@@ -106,6 +126,37 @@ impl Config {
             })
             .map(|rule| rule.id.as_str())
             .collect()
+    }
+
+    fn preset_profiles(&self) -> Vec<Profile> {
+        self.presets
+            .iter()
+            .filter_map(|preset| match preset {
+                Preset::RustCli | Preset::RustLib => Some(Profile::Rust),
+                Preset::Oss | Preset::Internal | Preset::Strict => None,
+            })
+            .collect()
+    }
+
+    fn preset_disabled_rules(&self) -> HashSet<&'static str> {
+        let mut disabled = HashSet::new();
+
+        for preset in &self.presets {
+            match preset {
+                Preset::RustLib => {
+                    disabled.insert("rust_cargo_lock");
+                }
+                Preset::Internal => {
+                    disabled.insert("code_of_conduct");
+                    disabled.insert("issue_templates");
+                    disabled.insert("pull_request_template");
+                    disabled.insert("changelog");
+                }
+                Preset::RustCli | Preset::Oss | Preset::Strict => {}
+            }
+        }
+
+        disabled
     }
 
     fn disabled_rules_without_reason(&self) -> Vec<&str> {

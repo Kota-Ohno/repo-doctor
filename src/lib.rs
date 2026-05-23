@@ -814,6 +814,31 @@ disabled = true
     }
 
     #[test]
+    fn rust_lib_preset_selects_rust_and_suppresses_lockfile_warning() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("repo-doctor.toml"),
+            r#"presets = ["rust-lib"]"#,
+        )
+        .unwrap();
+        fs::write(
+            temp_dir.path().join("Cargo.toml"),
+            r#"[package]
+name = "demo"
+version = "0.1.0"
+edition = "2024"
+"#,
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("Profiles: rust"));
+        assert!(!output.text.contains("rust_cargo_lock"));
+    }
+
+    #[test]
     fn generates_bash_completions() {
         let output = completions(Shell::Bash).unwrap();
         let function_name = format!("_{}", env!("CARGO_PKG_NAME"));

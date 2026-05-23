@@ -147,7 +147,7 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Allow severity overrides by rule ID.
 - [x] Allow config-driven profile selection.
 - [x] Add `repo-doctor init` to generate a starter config.
-- [ ] Add named policy presets such as `rust-cli`, `rust-lib`, `oss`,
+- [x] Add named policy presets such as `rust-cli`, `rust-lib`, `oss`,
       `internal`, and `strict`.
 
 ### P2 - Automation outputs

@@ -87,6 +87,7 @@ Use `repo-doctor init` to create a starter config.
 
 ```toml
 profiles = ["auto"]
+presets = ["oss"]
 
 [[rules]]
 id = "changelog"
