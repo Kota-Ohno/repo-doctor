@@ -24,6 +24,26 @@ pub(crate) fn inspect(path: &Path) -> Vec<Check> {
             "License file is present",
         ),
         check_file(path, "gitignore", ".gitignore", ".gitignore is present"),
+        check_file(
+            path,
+            "editorconfig",
+            ".editorconfig",
+            ".editorconfig is present",
+        ),
+        check_file(
+            path,
+            "gitattributes",
+            ".gitattributes",
+            ".gitattributes is present",
+        ),
+        check_any_file(
+            path,
+            "env_example",
+            &[".env.example", ".env.sample", "config/.env.example"],
+            "Example environment file is present",
+        ),
+        check_docs_or_examples(path),
+        check_secret_like_files(path),
         check_workflows(
             path,
             "github_actions",
@@ -91,6 +111,49 @@ pub(crate) fn inspect(path: &Path) -> Vec<Check> {
     }
     checks.extend(inspect_workflow_content(path));
     checks
+}
+
+fn check_docs_or_examples(path: &Path) -> Check {
+    if path.join("docs").is_dir() || path.join("examples").is_dir() {
+        pass(
+            "docs_or_examples",
+            "Documentation or examples directory is present",
+        )
+    } else {
+        warn(
+            "docs_or_examples",
+            "Documentation or examples directory is missing",
+            "Add docs/ or examples/ for richer usage guidance.",
+        )
+    }
+}
+
+fn check_secret_like_files(path: &Path) -> Check {
+    let candidates = [
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.development",
+        "secrets.json",
+        "credentials.json",
+    ];
+    let found = candidates
+        .iter()
+        .find(|candidate| path.join(candidate).is_file());
+
+    if let Some(found) = found {
+        warn(
+            "secret_like_file",
+            format!("Secret-like file is present: {found}"),
+            "Remove committed secret files and keep only sanitized examples such as .env.example.",
+        )
+        .with_location(*found, None)
+    } else {
+        pass(
+            "secret_like_file",
+            "No common secret-like files are present",
+        )
+    }
 }
 
 fn inspect_workflow_content(path: &Path) -> Vec<Check> {

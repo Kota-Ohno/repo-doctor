@@ -41,6 +41,14 @@ pub enum Command {
         #[arg(long)]
         config: Option<PathBuf>,
 
+        /// Emit only warning checks.
+        #[arg(long)]
+        warnings_only: bool,
+
+        /// Exit nonzero when the report score is below this percentage.
+        #[arg(long, value_parser = clap::value_parser!(u8).range(0..=100))]
+        min_score: Option<u8>,
+
         /// Exit nonzero when the report contains findings at this level.
         #[arg(long, value_enum)]
         fail_on: Option<FailOn>,
@@ -61,7 +69,17 @@ pub enum Command {
         /// Output format.
         #[arg(short, long, value_enum, default_value_t = OutputFormat::Text)]
         format: OutputFormat,
+
+        /// Emit only warning checks.
+        #[arg(long)]
+        warnings_only: bool,
     },
+
+    /// List supported profiles and auto-detection hints.
+    ListProfiles,
+
+    /// List known rule IDs for configuration.
+    ListRules,
 
     /// Generate shell completion scripts.
     Completions {
@@ -80,6 +98,8 @@ pub enum OutputFormat {
     Markdown,
     Github,
     Sarif,
+    Compact,
+    Junit,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -94,10 +114,42 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             format,
             profile,
             config,
+            warnings_only,
+            min_score,
             fail_on,
-        } => check_repository_with_config(&path, format, profile, config.as_deref(), fail_on),
+        } => check_repository_with_options(
+            &path,
+            format,
+            profile,
+            config.as_deref(),
+            CheckOptions {
+                fail_on,
+                warnings_only,
+                min_score,
+            },
+        ),
         Command::Init { path } => init_config(&path),
-        Command::Github { repo, format } => check_github_repository(&repo, format),
+        Command::Github {
+            repo,
+            format,
+            warnings_only,
+        } => check_github_repository_with_options(
+            &repo,
+            format,
+            CheckOptions {
+                fail_on: None,
+                warnings_only,
+                min_score: None,
+            },
+        ),
+        Command::ListProfiles => Ok(RunOutput {
+            text: list_profiles(),
+            exit_code: 0,
+        }),
+        Command::ListRules => Ok(RunOutput {
+            text: list_rules(),
+            exit_code: 0,
+        }),
         Command::Completions { shell } => Ok(RunOutput {
             text: completions(shell)?,
             exit_code: 0,
@@ -125,14 +177,50 @@ pub fn check_repository_with_config(
     config_path: Option<&Path>,
     fail_on: Option<FailOn>,
 ) -> Result<RunOutput> {
+    check_repository_with_options(
+        path,
+        format,
+        profile,
+        config_path,
+        CheckOptions {
+            fail_on,
+            warnings_only: false,
+            min_score: None,
+        },
+    )
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct CheckOptions {
+    fail_on: Option<FailOn>,
+    warnings_only: bool,
+    min_score: Option<u8>,
+}
+
+fn check_repository_with_options(
+    path: &Path,
+    format: OutputFormat,
+    profile: Profile,
+    config_path: Option<&Path>,
+    options: CheckOptions,
+) -> Result<RunOutput> {
     validate_repository_path(path)?;
 
     let config = config::load(path, config_path)?;
     let report = inspect_repository_with_config(path, profile, &config);
-    let exit_code = if fail_on == Some(FailOn::Warn) && report.has_warnings() {
+    let exit_code = if (options.fail_on == Some(FailOn::Warn) && report.has_warnings())
+        || options
+            .min_score
+            .is_some_and(|min_score| report.score() < min_score)
+    {
         1
     } else {
         0
+    };
+    let report = if options.warnings_only {
+        report.warnings_only()
+    } else {
+        report
     };
 
     let text = match format {
@@ -141,6 +229,8 @@ pub fn check_repository_with_config(
         OutputFormat::Markdown => report.format_markdown(),
         OutputFormat::Github => report.format_github_annotations(),
         OutputFormat::Sarif => report.format_sarif()?,
+        OutputFormat::Compact => report.format_compact(),
+        OutputFormat::Junit => report.format_junit(),
     };
 
     Ok(RunOutput { text, exit_code })
@@ -180,16 +270,47 @@ pub fn init_config(path: &Path) -> Result<RunOutput> {
 }
 
 pub fn check_github_repository(repo: &str, format: OutputFormat) -> Result<RunOutput> {
+    check_github_repository_with_options(repo, format, CheckOptions::default())
+}
+
+fn check_github_repository_with_options(
+    repo: &str,
+    format: OutputFormat,
+    options: CheckOptions,
+) -> Result<RunOutput> {
     let report = github::inspect(repo)?;
+    let report = if options.warnings_only {
+        report.warnings_only()
+    } else {
+        report
+    };
     let text = match format {
         OutputFormat::Text => report.format_text(),
         OutputFormat::Json => serde_json::to_string_pretty(&report)?,
         OutputFormat::Markdown => report.format_markdown(),
         OutputFormat::Github => report.format_github_annotations(),
         OutputFormat::Sarif => report.format_sarif()?,
+        OutputFormat::Compact => report.format_compact(),
+        OutputFormat::Junit => report.format_junit(),
     };
 
     Ok(RunOutput { text, exit_code: 0 })
+}
+
+pub fn list_profiles() -> String {
+    Profile::catalog()
+        .iter()
+        .map(|(profile, hint)| format!("{profile}\t{hint}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+pub fn list_rules() -> String {
+    report::known_rules()
+        .iter()
+        .map(|rule| format!("{}\t{}\t{}", rule.id, rule.severity, rule.description))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn validate_repository_path(path: &Path) -> Result<()> {
@@ -623,6 +744,25 @@ requires = ["setuptools"]
     }
 
     #[test]
+    fn warns_on_secret_like_files_and_allows_excluding_locations() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(temp_dir.path().join(".env"), "TOKEN=secret\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+        assert!(output.text.contains("[WARN] secret_like_file"));
+
+        fs::write(
+            temp_dir.path().join("repo-doctor.toml"),
+            "exclude_paths = [\".env\"]\n",
+        )
+        .unwrap();
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+        assert!(!output.text.contains("secret_like_file"));
+    }
+
+    #[test]
     fn warns_when_workflows_directory_has_no_workflow_files() {
         let temp_dir = tempfile::tempdir().unwrap();
         fs::create_dir_all(temp_dir.path().join(".github/workflows")).unwrap();
@@ -762,6 +902,76 @@ requires = ["setuptools"]
         assert_eq!(value.get("version").unwrap(), "2.1.0");
         assert_eq!(value["runs"][0]["tool"]["driver"]["name"], "repo-doctor");
         assert_eq!(value["runs"][0]["results"][0]["ruleId"], "readme");
+    }
+
+    #[test]
+    fn compact_output_contains_one_line_summary() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Compact, Profile::Auto, None).unwrap();
+
+        assert!(output.text.starts_with("repo-doctor path="));
+        assert!(output.text.contains("score="));
+        assert!(!output.text.contains('\n'));
+    }
+
+    #[test]
+    fn junit_output_contains_failures_for_warnings() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Junit, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("<testsuite"));
+        assert!(output.text.contains("<failure"));
+    }
+
+    #[test]
+    fn warnings_only_filters_passes() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output = check_repository_with_options(
+            temp_dir.path(),
+            OutputFormat::Text,
+            Profile::Auto,
+            None,
+            CheckOptions {
+                fail_on: None,
+                warnings_only: true,
+                min_score: None,
+            },
+        )
+        .unwrap();
+
+        assert!(output.text.contains("[WARN] readme"));
+        assert!(!output.text.contains("[PASS]"));
+    }
+
+    #[test]
+    fn min_score_can_fail_quality_gate() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output = check_repository_with_options(
+            temp_dir.path(),
+            OutputFormat::Text,
+            Profile::Auto,
+            None,
+            CheckOptions {
+                fail_on: None,
+                warnings_only: false,
+                min_score: Some(100),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(output.exit_code, 1);
+    }
+
+    #[test]
+    fn list_commands_include_profiles_and_rules() {
+        assert!(list_profiles().contains("rust\tCargo.toml"));
+        assert!(list_rules().contains("readme\twarning"));
     }
 
     #[test]

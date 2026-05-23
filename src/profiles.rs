@@ -28,6 +28,33 @@ pub enum Profile {
 }
 
 impl Profile {
+    pub(crate) fn catalog() -> &'static [(&'static str, &'static str)] {
+        &[
+            ("auto", "core checks plus auto-detected ecosystems"),
+            ("generic", "core checks only"),
+            ("rust", "Cargo.toml"),
+            ("node", "package.json"),
+            ("python", "pyproject.toml, setup.py, or requirements.txt"),
+            ("go", "go.mod"),
+            (
+                "docker",
+                "Dockerfile, Containerfile, Compose, or .dockerignore",
+            ),
+            ("jvm", "pom.xml or Gradle files"),
+            ("deno", "deno.json, deno.jsonc, or deno.lock"),
+            ("bun", "bun lockfiles or packageManager=bun"),
+            ("dotnet", ".sln, .csproj, .fsproj, .vbproj, or global.json"),
+            ("php", "composer.json or composer.lock"),
+            ("ruby", "Gemfile, Gemfile.lock, or .gemspec"),
+            (
+                "cpp",
+                "CMake, Make, Meson, Autotools, or C/C++ source files",
+            ),
+            ("swift", "Package.swift or Package.resolved"),
+            ("kotlin", "Kotlin Gradle files or Kotlin source paths"),
+        ]
+    }
+
     pub(crate) fn name(self) -> &'static str {
         match self {
             Profile::Auto => "auto",
@@ -284,6 +311,8 @@ fn inspect_rust(path: &Path) -> Vec<Check> {
         check_cargo_lock(path),
         check_gitignore_target(path),
         check_rust_readme_commands(path, package),
+        check_rust_toolchain(path),
+        check_rust_tooling_configs(path),
     ];
 
     checks.retain(|check| !check.id.is_empty());
@@ -447,6 +476,36 @@ fn check_rust_readme_commands(path: &Path, package: &toml::map::Map<String, toml
     }
 }
 
+fn check_rust_toolchain(path: &Path) -> Check {
+    if path.join("rust-toolchain.toml").exists() || path.join("rust-toolchain").exists() {
+        pass("rust_toolchain", "Rust toolchain pin is present")
+    } else {
+        warn(
+            "rust_toolchain",
+            "Rust toolchain pin is missing",
+            "Add rust-toolchain.toml or rust-toolchain to make local and CI toolchains reproducible.",
+        )
+    }
+}
+
+fn check_rust_tooling_configs(path: &Path) -> Check {
+    let has_rustfmt = path.join("rustfmt.toml").exists() || path.join(".rustfmt.toml").exists();
+    let has_clippy = path.join("clippy.toml").exists() || path.join(".clippy.toml").exists();
+
+    if has_rustfmt && has_clippy {
+        pass(
+            "rust_tooling_config",
+            "Rust rustfmt and clippy configs are present",
+        )
+    } else {
+        warn(
+            "rust_tooling_config",
+            "Rust rustfmt or clippy config is missing",
+            "Add rustfmt.toml and clippy.toml when the project has non-default formatting or lint policy.",
+        )
+    }
+}
+
 fn inspect_node(path: &Path) -> Vec<Check> {
     let package_path = path.join("package.json");
     let package = match std::fs::read_to_string(&package_path) {
@@ -480,6 +539,8 @@ fn inspect_node(path: &Path) -> Vec<Check> {
         check_node_test_script(&parsed),
         check_node_engines(&parsed),
         check_node_lockfile(path),
+        check_typescript_config(path, &parsed),
+        check_node_lint_and_format(path, &parsed),
     ]
 }
 
@@ -573,6 +634,83 @@ fn check_node_lockfile(path: &Path) -> Check {
     }
 }
 
+fn check_typescript_config(path: &Path, package: &JsonValue) -> Check {
+    let has_typescript = path.join("tsconfig.json").exists()
+        || package_has_dependency(package, "typescript")
+        || recursive_has_extension(path, "ts");
+    if !has_typescript {
+        return pass(
+            "node_typescript_config",
+            "TypeScript config check is not applicable",
+        );
+    }
+
+    let config = match read_json(path.join("tsconfig.json")) {
+        Some(value) => value,
+        None => {
+            return warn(
+                "node_typescript_config",
+                "TypeScript project is missing tsconfig.json",
+                "Add tsconfig.json for TypeScript compiler settings.",
+            );
+        }
+    };
+    let strict = config
+        .get("compilerOptions")
+        .and_then(|options| options.get("strict"))
+        .and_then(JsonValue::as_bool)
+        .unwrap_or(false);
+
+    if strict {
+        pass(
+            "node_typescript_config",
+            "TypeScript strict mode is enabled",
+        )
+    } else {
+        warn(
+            "node_typescript_config",
+            "TypeScript strict mode is not enabled",
+            "Set compilerOptions.strict = true in tsconfig.json.",
+        )
+    }
+}
+
+fn check_node_lint_and_format(path: &Path, package: &JsonValue) -> Check {
+    let has_lint = package_script(package, "lint")
+        || root_has_any_file(
+            path,
+            &[
+                "eslint.config.js",
+                "eslint.config.mjs",
+                ".eslintrc",
+                ".eslintrc.json",
+            ],
+        );
+    let has_format = package_script(package, "format")
+        || root_has_any_file(
+            path,
+            &[
+                ".prettierrc",
+                ".prettierrc.json",
+                "prettier.config.js",
+                "prettier.config.mjs",
+            ],
+        );
+
+    if has_lint && has_format {
+        pass(
+            "node_lint_format",
+            "Node lint and format commands are configured",
+        )
+    } else {
+        warn(
+            "node_lint_format",
+            "Node lint or format command is missing",
+            "Add lint and format scripts or ESLint/Prettier config files.",
+        )
+    }
+}
+
 fn inspect_python(path: &Path) -> Vec<Check> {
     if path.join("pyproject.toml").exists() {
         inspect_pyproject(path)
@@ -645,6 +783,8 @@ fn inspect_pyproject(path: &Path) -> Vec<Check> {
     checks.push(check_python_build_system(&parsed));
     checks.push(check_python_lockfile(path));
     checks.push(check_python_tests(path));
+    checks.push(check_python_lint_format(&parsed));
+    checks.push(check_python_pytest_config(path, &parsed));
     checks.retain(|check| !check.id.is_empty());
     checks
 }
@@ -687,6 +827,46 @@ fn check_python_tests(path: &Path) -> Check {
             "python_tests",
             "Python test directory is missing",
             "Add tests/ or test/ so automated test discovery is clear.",
+        )
+    }
+}
+
+fn check_python_lint_format(pyproject: &toml::Value) -> Check {
+    let tool = pyproject.get("tool").and_then(toml::Value::as_table);
+    let has_ruff = tool.is_some_and(|tool| tool.contains_key("ruff"));
+    let has_black = tool.is_some_and(|tool| tool.contains_key("black"));
+
+    if has_ruff || has_black {
+        pass(
+            "python_lint_format",
+            "Python lint or format tooling is configured",
+        )
+    } else {
+        warn(
+            "python_lint_format",
+            "Python lint or format tooling is missing",
+            "Configure Ruff, Black, or another formatter/linter in pyproject.toml.",
+        )
+    }
+}
+
+fn check_python_pytest_config(path: &Path, pyproject: &toml::Value) -> Check {
+    let has_pytest_ini = path.join("pytest.ini").exists() || path.join("tox.ini").exists();
+    let has_pytest_pyproject = pyproject
+        .get("tool")
+        .and_then(|tool| tool.get("pytest"))
+        .is_some();
+
+    if has_pytest_ini || has_pytest_pyproject {
+        pass(
+            "python_pytest_config",
+            "Python pytest configuration is present",
+        )
+    } else {
+        warn(
+            "python_pytest_config",
+            "Python pytest configuration is missing",
+            "Add pytest.ini or [tool.pytest] configuration when pytest is used.",
         )
     }
 }
@@ -751,6 +931,7 @@ fn inspect_go(path: &Path) -> Vec<Check> {
         check_go_module(&go_mod),
         check_go_version(&go_mod),
         check_go_sum(path),
+        check_go_ci_commands(path),
     ]
 }
 
@@ -798,12 +979,42 @@ fn check_go_sum(path: &Path) -> Check {
     }
 }
 
+fn check_go_ci_commands(path: &Path) -> Check {
+    let workflows = workflow_contents(path);
+    if workflows.is_empty() {
+        return warn(
+            "go_ci_commands",
+            "Go CI workflow commands are missing",
+            "Add GitHub Actions steps for go test, go vet, and gofmt checking.",
+        );
+    }
+
+    let has_test = workflows.contains("go test");
+    let has_vet = workflows.contains("go vet");
+    let has_fmt = workflows.contains("gofmt") || workflows.contains("go fmt");
+
+    if has_test && has_vet && has_fmt {
+        pass(
+            "go_ci_commands",
+            "Go CI includes test, vet, and formatting commands",
+        )
+    } else {
+        warn(
+            "go_ci_commands",
+            "Go CI is missing test, vet, or formatting commands",
+            "Add go test, go vet, and gofmt or go fmt checks to CI.",
+        )
+    }
+}
+
 fn inspect_docker(path: &Path) -> Vec<Check> {
     vec![
         check_container_build_file(path),
         check_dockerignore(path),
         check_compose_file(path),
         check_dockerfile_latest_tag(path),
+        check_dockerfile_healthcheck(path),
+        check_dockerfile_user(path),
     ]
 }
 
@@ -891,6 +1102,54 @@ fn check_dockerfile_latest_tag(path: &Path) -> Check {
             "Container base image tags avoid :latest",
         )
     }
+}
+
+fn check_dockerfile_healthcheck(path: &Path) -> Check {
+    let Some(contents) = read_container_build_file(path) else {
+        return empty_check();
+    };
+
+    if contents.lines().any(|line| {
+        line.trim_start()
+            .to_ascii_uppercase()
+            .starts_with("HEALTHCHECK")
+    }) {
+        pass("docker_healthcheck", "Container HEALTHCHECK is configured")
+    } else {
+        warn(
+            "docker_healthcheck",
+            "Container HEALTHCHECK is missing",
+            "Add a HEALTHCHECK when the image runs a long-lived service.",
+        )
+    }
+}
+
+fn check_dockerfile_user(path: &Path) -> Check {
+    let Some(contents) = read_container_build_file(path) else {
+        return empty_check();
+    };
+
+    if contents
+        .lines()
+        .any(|line| line.trim_start().to_ascii_uppercase().starts_with("USER "))
+    {
+        pass(
+            "docker_non_root_user",
+            "Container switches to a configured USER",
+        )
+    } else {
+        warn(
+            "docker_non_root_user",
+            "Container USER directive is missing",
+            "Use a non-root USER when the runtime image does not require root.",
+        )
+    }
+}
+
+fn read_container_build_file(path: &Path) -> Option<String> {
+    ["Dockerfile", "Containerfile"]
+        .iter()
+        .find_map(|candidate| std::fs::read_to_string(path.join(candidate)).ok())
 }
 
 fn empty_check() -> Check {
@@ -1355,6 +1614,74 @@ fn check_kotlin_sources(path: &Path) -> Check {
 fn read_json(path: impl AsRef<Path>) -> Option<JsonValue> {
     let contents = std::fs::read_to_string(path).ok()?;
     serde_json::from_str::<JsonValue>(&contents).ok()
+}
+
+fn package_has_dependency(package: &JsonValue, name: &str) -> bool {
+    ["dependencies", "devDependencies", "peerDependencies"]
+        .iter()
+        .any(|section| {
+            package
+                .get(section)
+                .is_some_and(|deps| deps.get(name).is_some())
+        })
+}
+
+fn package_script(package: &JsonValue, name: &str) -> bool {
+    package
+        .get("scripts")
+        .and_then(|scripts| scripts.get(name))
+        .and_then(JsonValue::as_str)
+        .is_some_and(|script| !script.trim().is_empty())
+}
+
+fn root_has_any_file(path: &Path, candidates: &[&str]) -> bool {
+    candidates
+        .iter()
+        .any(|candidate| path.join(candidate).exists())
+}
+
+fn recursive_has_extension(path: &Path, extension: &str) -> bool {
+    let Ok(entries) = path.read_dir() else {
+        return false;
+    };
+
+    entries.filter_map(Result::ok).any(|entry| {
+        let entry_path = entry.path();
+        if entry_path
+            .file_name()
+            .is_some_and(|name| name == "target" || name == "node_modules" || name == ".git")
+        {
+            return false;
+        }
+        if entry_path.is_dir() {
+            recursive_has_extension(&entry_path, extension)
+        } else {
+            entry_path
+                .extension()
+                .is_some_and(|candidate| candidate == extension)
+        }
+    })
+}
+
+fn workflow_contents(path: &Path) -> String {
+    let workflows_dir = path.join(".github/workflows");
+    let Ok(entries) = workflows_dir.read_dir() else {
+        return String::new();
+    };
+
+    entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            let is_workflow = path
+                .extension()
+                .is_some_and(|extension| extension == "yml" || extension == "yaml");
+            is_workflow
+                .then(|| std::fs::read_to_string(path).ok())
+                .flatten()
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn read_readme(path: &Path) -> Option<String> {

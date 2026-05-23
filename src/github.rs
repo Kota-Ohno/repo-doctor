@@ -14,7 +14,7 @@ pub(crate) fn inspect(repo: &str) -> Result<Report> {
         "view",
         repo,
         "--json",
-        "description,repositoryTopics,defaultBranchRef,isArchived,pushedAt",
+        "description,repositoryTopics,defaultBranchRef,isArchived,pushedAt,licenseInfo,homepageUrl",
     ])?;
     let mut checks = inspect_view_payload(repo, &view);
 
@@ -29,6 +29,7 @@ pub(crate) fn inspect(repo: &str) -> Result<Report> {
     checks.push(check_vulnerability_alerts(repo));
     checks.extend(check_community_profile(repo));
     checks.push(check_scorecard_link(repo));
+    checks.push(check_latest_release(repo));
 
     Ok(Report::new(PathBuf::from(repo), Vec::new(), checks))
 }
@@ -76,6 +77,8 @@ fn inspect_view_payload(repo: &str, view: &JsonValue) -> Vec<Check> {
         check_default_branch(view),
         check_archived(view),
         check_recent_activity(view),
+        check_remote_license(view),
+        check_remote_homepage(view),
     ]
 }
 
@@ -169,6 +172,43 @@ fn check_recent_activity(view: &JsonValue) -> Check {
             "github_remote_recent_activity",
             "GitHub repository push activity is unavailable",
             "Check whether the repository has recent maintenance activity.",
+        )
+    }
+}
+
+fn check_remote_license(view: &JsonValue) -> Check {
+    if view
+        .get("licenseInfo")
+        .is_some_and(|license| !license.is_null())
+    {
+        pass(
+            "github_remote_license",
+            "GitHub repository license metadata is available",
+        )
+    } else {
+        warn(
+            "github_remote_license",
+            "GitHub repository license metadata is missing",
+            "Add a recognizable license file so GitHub can classify repository licensing.",
+        )
+    }
+}
+
+fn check_remote_homepage(view: &JsonValue) -> Check {
+    if view
+        .get("homepageUrl")
+        .and_then(JsonValue::as_str)
+        .is_some_and(|homepage| !homepage.trim().is_empty())
+    {
+        pass(
+            "github_remote_homepage",
+            "GitHub repository homepage URL is set",
+        )
+    } else {
+        warn(
+            "github_remote_homepage",
+            "GitHub repository homepage URL is missing",
+            "Set a homepage URL when the project has docs, crates, packages, or a product page.",
         )
     }
 }
@@ -272,6 +312,22 @@ fn check_scorecard_link(repo: &str) -> Check {
     .with_documentation_url("https://scorecard.dev/")
 }
 
+fn check_latest_release(repo: &str) -> Check {
+    let endpoint = format!("repos/{repo}/releases/latest");
+    if gh_status(&["api", &endpoint, "--silent"]) {
+        pass(
+            "github_remote_latest_release",
+            "GitHub latest release is available",
+        )
+    } else {
+        warn(
+            "github_remote_latest_release",
+            "GitHub latest release is missing",
+            "Create releases when users need stable installable versions.",
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -283,7 +339,9 @@ mod tests {
             "repositoryTopics": [{ "name": "cli" }],
             "defaultBranchRef": { "name": "main" },
             "isArchived": false,
-            "pushedAt": "2026-05-23T00:00:00Z"
+            "pushedAt": "2026-05-23T00:00:00Z",
+            "licenseInfo": { "spdxId": "MIT" },
+            "homepageUrl": "https://example.com"
         });
 
         let checks = inspect_view_payload("owner/repo", &view);

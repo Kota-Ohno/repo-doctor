@@ -14,6 +14,9 @@ pub(crate) const STARTER_CONFIG: &str = r#"# repo-doctor configuration
 # Policy presets tune generic rules without changing the report schema.
 # presets = ["oss"]
 
+# File-based findings with matching locations are removed after checking.
+# exclude_paths = ["vendor/*", "generated/*"]
+
 # Rules can be disabled only with a rationale.
 # [[rules]]
 # id = "changelog"
@@ -31,6 +34,8 @@ pub(crate) struct Config {
     profiles: Option<Vec<Profile>>,
     #[serde(default)]
     presets: Vec<Preset>,
+    #[serde(default)]
+    exclude_paths: Vec<String>,
     #[serde(default)]
     rules: Vec<RuleConfig>,
 }
@@ -96,6 +101,7 @@ impl Config {
         let mut configured = checks
             .into_iter()
             .filter(|check| !disabled.contains(check.id()) && !preset_disabled.contains(check.id()))
+            .filter(|check| !self.is_excluded(check))
             .map(|mut check| {
                 if let Some(severity) = severity_overrides.get(check.id()) {
                     check.set_severity(*severity);
@@ -184,6 +190,16 @@ impl Config {
             })
             .collect()
     }
+
+    fn is_excluded(&self, check: &Check) -> bool {
+        let Some(location) = check.location_path() else {
+            return false;
+        };
+
+        self.exclude_paths
+            .iter()
+            .any(|pattern| simple_path_match(pattern, location))
+    }
 }
 
 pub(crate) fn load(path: &Path, explicit_path: Option<&Path>) -> Result<Config> {
@@ -213,4 +229,21 @@ fn dedupe_profiles(profiles: Vec<Profile>) -> Vec<Profile> {
     }
 
     deduped
+}
+
+fn simple_path_match(pattern: &str, path: &str) -> bool {
+    let pattern = pattern.trim();
+    if pattern == path {
+        return true;
+    }
+
+    if let Some(prefix) = pattern.strip_suffix("/*") {
+        return path == prefix || path.starts_with(&format!("{prefix}/"));
+    }
+
+    if let Some(suffix) = pattern.strip_prefix("*.") {
+        return path.ends_with(&format!(".{suffix}"));
+    }
+
+    false
 }

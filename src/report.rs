@@ -5,6 +5,222 @@ use serde_json::json;
 
 use crate::profiles::Profile;
 
+pub struct RuleInfo {
+    pub id: &'static str,
+    pub severity: &'static str,
+    pub description: &'static str,
+}
+
+pub fn known_rules() -> &'static [RuleInfo] {
+    &[
+        RuleInfo {
+            id: "readme",
+            severity: "warning",
+            description: "README is present",
+        },
+        RuleInfo {
+            id: "license",
+            severity: "warning",
+            description: "License file is present",
+        },
+        RuleInfo {
+            id: "gitignore",
+            severity: "warning",
+            description: ".gitignore is present",
+        },
+        RuleInfo {
+            id: "editorconfig",
+            severity: "warning",
+            description: ".editorconfig is present",
+        },
+        RuleInfo {
+            id: "gitattributes",
+            severity: "warning",
+            description: ".gitattributes is present",
+        },
+        RuleInfo {
+            id: "env_example",
+            severity: "warning",
+            description: "Example environment file is present",
+        },
+        RuleInfo {
+            id: "docs_or_examples",
+            severity: "warning",
+            description: "Documentation or examples directory is present",
+        },
+        RuleInfo {
+            id: "secret_like_file",
+            severity: "warning",
+            description: "Common secret-like files are absent",
+        },
+        RuleInfo {
+            id: "github_actions",
+            severity: "warning",
+            description: "GitHub Actions workflow is present",
+        },
+        RuleInfo {
+            id: "github_actions_yaml",
+            severity: "warning",
+            description: "GitHub Actions workflow YAML parses",
+        },
+        RuleInfo {
+            id: "github_actions_triggers",
+            severity: "warning",
+            description: "GitHub Actions run on push and pull_request",
+        },
+        RuleInfo {
+            id: "github_actions_permissions",
+            severity: "warning",
+            description: "GitHub Actions permissions are declared",
+        },
+        RuleInfo {
+            id: "github_actions_floating_refs",
+            severity: "warning",
+            description: "GitHub Actions avoid floating action refs",
+        },
+        RuleInfo {
+            id: "dependency_update_config",
+            severity: "warning",
+            description: "Dependabot or Renovate config is present",
+        },
+        RuleInfo {
+            id: "contributing",
+            severity: "warning",
+            description: "Contribution guide is present",
+        },
+        RuleInfo {
+            id: "code_of_conduct",
+            severity: "warning",
+            description: "Code of conduct is present",
+        },
+        RuleInfo {
+            id: "security_policy",
+            severity: "warning",
+            description: "Security policy is present",
+        },
+        RuleInfo {
+            id: "issue_templates",
+            severity: "warning",
+            description: "Issue template is present",
+        },
+        RuleInfo {
+            id: "issue_template_frontmatter",
+            severity: "warning",
+            description: "Issue template frontmatter is populated",
+        },
+        RuleInfo {
+            id: "pull_request_template",
+            severity: "warning",
+            description: "Pull request template is present",
+        },
+        RuleInfo {
+            id: "changelog",
+            severity: "warning",
+            description: "Changelog or release notes are present",
+        },
+        RuleInfo {
+            id: "rust_cargo_name",
+            severity: "warning",
+            description: "Cargo package name is set",
+        },
+        RuleInfo {
+            id: "rust_cargo_version",
+            severity: "warning",
+            description: "Cargo package version is set",
+        },
+        RuleInfo {
+            id: "rust_cargo_edition",
+            severity: "warning",
+            description: "Cargo package edition is set",
+        },
+        RuleInfo {
+            id: "rust_cargo_lock",
+            severity: "warning",
+            description: "Cargo.lock is present",
+        },
+        RuleInfo {
+            id: "rust_readme_commands",
+            severity: "warning",
+            description: "README documents Rust usage and test commands",
+        },
+        RuleInfo {
+            id: "rust_toolchain",
+            severity: "warning",
+            description: "Rust toolchain pin is present",
+        },
+        RuleInfo {
+            id: "rust_tooling_config",
+            severity: "warning",
+            description: "Rust rustfmt and clippy configs are present",
+        },
+        RuleInfo {
+            id: "node_name",
+            severity: "warning",
+            description: "package.json name is set",
+        },
+        RuleInfo {
+            id: "node_test_script",
+            severity: "warning",
+            description: "package.json scripts.test is set",
+        },
+        RuleInfo {
+            id: "node_typescript_config",
+            severity: "warning",
+            description: "TypeScript compiler configuration is present when applicable",
+        },
+        RuleInfo {
+            id: "node_lint_format",
+            severity: "warning",
+            description: "Node lint and format commands are configured",
+        },
+        RuleInfo {
+            id: "python_project_metadata",
+            severity: "warning",
+            description: "pyproject.toml has project metadata",
+        },
+        RuleInfo {
+            id: "python_lint_format",
+            severity: "warning",
+            description: "Python lint or format tooling is configured",
+        },
+        RuleInfo {
+            id: "python_pytest_config",
+            severity: "warning",
+            description: "Python pytest configuration is present",
+        },
+        RuleInfo {
+            id: "go_module",
+            severity: "warning",
+            description: "go.mod module declaration is present",
+        },
+        RuleInfo {
+            id: "go_ci_commands",
+            severity: "warning",
+            description: "Go CI includes test, vet, and formatting commands",
+        },
+        RuleInfo {
+            id: "docker_build_file",
+            severity: "warning",
+            description: "Container build file is present",
+        },
+        RuleInfo {
+            id: "docker_healthcheck",
+            severity: "warning",
+            description: "Container HEALTHCHECK is configured",
+        },
+        RuleInfo {
+            id: "docker_non_root_user",
+            severity: "warning",
+            description: "Container switches to a configured USER",
+        },
+        RuleInfo {
+            id: "github_remote_branch_protection",
+            severity: "warning",
+            description: "Default branch protection is enabled",
+        },
+    ]
+}
+
 #[derive(Debug)]
 pub struct RunOutput {
     pub text: String,
@@ -31,6 +247,25 @@ impl Report {
             summary,
             checks,
         }
+    }
+
+    pub fn score(&self) -> u8 {
+        self.summary.score
+    }
+
+    pub fn warning_count(&self) -> usize {
+        self.summary.warn
+    }
+
+    pub fn warnings_only(&self) -> Self {
+        let checks = self
+            .checks
+            .iter()
+            .filter(|check| matches!(check.status, CheckStatus::Warn))
+            .cloned()
+            .collect();
+
+        Self::new(self.path.clone(), self.selected_profiles.clone(), checks)
     }
 
     pub fn has_warnings(&self) -> bool {
@@ -60,6 +295,18 @@ impl Report {
         }
 
         lines.join("\n")
+    }
+
+    pub fn format_compact(&self) -> String {
+        format!(
+            "repo-doctor path={} profiles={} pass={} warn={} total={} score={}",
+            self.path.display(),
+            format_profiles(&self.selected_profiles),
+            self.summary.pass,
+            self.summary.warn,
+            self.summary.total,
+            self.summary.score
+        )
     }
 
     pub fn format_markdown(&self) -> String {
@@ -101,7 +348,7 @@ impl Report {
             return "repo-doctor: no warnings".to_owned();
         }
 
-        warnings
+        let mut lines = warnings
             .iter()
             .map(|check| {
                 format!(
@@ -113,8 +360,37 @@ impl Report {
                     ))
                 )
             })
-            .collect::<Vec<_>>()
-            .join("\n")
+            .collect::<Vec<_>>();
+        lines.push(format!(
+            "repo-doctor: {} warning(s), score {}",
+            self.summary.warn, self.summary.score
+        ));
+        lines.join("\n")
+    }
+
+    pub fn format_junit(&self) -> String {
+        let mut lines = vec![format!(
+            r#"<testsuite name="repo-doctor" tests="{}" failures="{}">"#,
+            self.summary.total, self.summary.warn
+        )];
+
+        for check in &self.checks {
+            lines.push(format!(
+                r#"  <testcase classname="repo-doctor" name="{}">"#,
+                escape_xml(check.id)
+            ));
+            if matches!(check.status, CheckStatus::Warn) {
+                lines.push(format!(
+                    r#"    <failure message="{}">{}</failure>"#,
+                    escape_xml(&check.message),
+                    escape_xml(&check.remediation)
+                ));
+            }
+            lines.push("  </testcase>".to_owned());
+        }
+
+        lines.push("</testsuite>".to_owned());
+        lines.join("\n")
     }
 
     pub fn format_sarif(&self) -> serde_json::Result<String> {
@@ -171,7 +447,7 @@ impl Report {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Summary {
     pass: usize,
     warn: usize,
@@ -203,7 +479,7 @@ impl Summary {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Check {
     pub(crate) id: &'static str,
     pub(crate) status: CheckStatus,
@@ -237,16 +513,22 @@ impl Check {
         });
         self
     }
+
+    pub(crate) fn location_path(&self) -> Option<&str> {
+        self.location
+            .as_ref()
+            .map(|location| location.path.as_str())
+    }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Location {
     path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     line: Option<usize>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CheckStatus {
     Pass,
@@ -320,6 +602,15 @@ fn escape_github_annotation(value: &str) -> String {
         .replace('\n', "%0A")
         .replace(':', "%3A")
         .replace(',', "%2C")
+}
+
+fn escape_xml(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
 }
 
 fn sarif_location(repo_path: &Path, location: Option<&Location>) -> serde_json::Value {

@@ -41,7 +41,11 @@ cargo run -- check --format json
 cargo run -- check --format markdown
 cargo run -- check --format github
 cargo run -- check --format sarif
+cargo run -- check --format compact
+cargo run -- check --format junit
 cargo run -- check --config repo-doctor.toml
+cargo run -- check --warnings-only
+cargo run -- check --min-score 90
 cargo run -- check --profile generic
 cargo run -- check --profile rust
 cargo run -- check --profile node
@@ -59,6 +63,9 @@ cargo run -- check --profile swift
 cargo run -- check --profile kotlin
 cargo run -- check --fail-on warn
 cargo run -- github Kota-Ohno/repo-doctor
+cargo run -- github Kota-Ohno/repo-doctor --warnings-only
+cargo run -- list-profiles
+cargo run -- list-rules
 cargo test
 cargo clippy --all-targets --all-features -- -D warnings
 cargo c
@@ -88,6 +95,7 @@ Use `repo-doctor init` to create a starter config.
 ```toml
 profiles = ["auto"]
 presets = ["oss"]
+exclude_paths = ["vendor/*", "generated/*"]
 
 [[rules]]
 id = "changelog"
@@ -109,6 +117,24 @@ schema version 1. See [docs/report-contract.md](docs/report-contract.md).
 
 `repo-doctor github owner/repo` runs optional remote checks through the `gh` CLI.
 It is separate from local `check` so local repository checks stay offline-first.
+
+## Usage Patterns
+
+For CI quality gates, combine a machine-readable output with an exit policy:
+
+```bash
+repo-doctor check --format github --fail-on warn
+repo-doctor check --format compact --min-score 90
+repo-doctor check --format junit > repo-doctor-junit.xml
+```
+
+For config authoring:
+
+```bash
+repo-doctor list-profiles
+repo-doctor list-rules
+repo-doctor check --warnings-only
+```
 
 ## Layout
 

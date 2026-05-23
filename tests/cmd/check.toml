@@ -3,10 +3,15 @@ args = "check"
 stdout = """
 Repository: .
 Profiles: rust
-Summary: 31 passed, 0 warnings, score 100
+Summary: 38 passed, 0 warnings, score 100
 [PASS] readme: README is present
 [PASS] license: License file is present
 [PASS] gitignore: .gitignore is present
+[PASS] editorconfig: .editorconfig is present
+[PASS] gitattributes: .gitattributes is present
+[PASS] env_example: Example environment file is present
+[PASS] docs_or_examples: Documentation or examples directory is present
+[PASS] secret_like_file: No common secret-like files are present
 [PASS] github_actions: GitHub Actions workflow file is present
 [PASS] contributing: Contribution guide is present
 [PASS] code_of_conduct: Code of conduct is present
@@ -35,4 +40,6 @@ Summary: 31 passed, 0 warnings, score 100
 [PASS] rust_cargo_lock: Cargo.lock is present
 [PASS] rust_gitignore_target: .gitignore excludes Rust build output
 [PASS] rust_readme_commands: README documents Rust usage and test commands
+[PASS] rust_toolchain: Rust toolchain pin is present
+[PASS] rust_tooling_config: Rust rustfmt and clippy configs are present
 """

@@ -8,9 +8,9 @@ stdout = """
     "rust"
   ],
   "summary": {
-    "pass": 31,
+    "pass": 38,
     "warn": 0,
-    "total": 31,
+    "total": 38,
     "score": 100
   },
   "checks": [
@@ -33,6 +33,41 @@ stdout = """
       "status": "pass",
       "severity": "info",
       "message": ".gitignore is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "editorconfig",
+      "status": "pass",
+      "severity": "info",
+      "message": ".editorconfig is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "gitattributes",
+      "status": "pass",
+      "severity": "info",
+      "message": ".gitattributes is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "env_example",
+      "status": "pass",
+      "severity": "info",
+      "message": "Example environment file is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "docs_or_examples",
+      "status": "pass",
+      "severity": "info",
+      "message": "Documentation or examples directory is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "secret_like_file",
+      "status": "pass",
+      "severity": "info",
+      "message": "No common secret-like files are present",
       "remediation": "No action needed."
     },
     {
@@ -230,6 +265,20 @@ stdout = """
       "status": "pass",
       "severity": "info",
       "message": "README documents Rust usage and test commands",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "rust_toolchain",
+      "status": "pass",
+      "severity": "info",
+      "message": "Rust toolchain pin is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "rust_tooling_config",
+      "status": "pass",
+      "severity": "info",
+      "message": "Rust rustfmt and clippy configs are present",
       "remediation": "No action needed."
     }
   ]
