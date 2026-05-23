@@ -49,10 +49,10 @@ stdout = """
     },
     {
       "id": "code_of_conduct",
-      "status": "warn",
-      "severity": "warning",
-      "message": "Missing one of CODE_OF_CONDUCT.md, docs/CODE_OF_CONDUCT.md, .github/CODE_OF_CONDUCT.md",
-      "remediation": "Add one of CODE_OF_CONDUCT.md, docs/CODE_OF_CONDUCT.md, .github/CODE_OF_CONDUCT.md."
+      "status": "pass",
+      "severity": "info",
+      "message": "Code of conduct is present",
+      "remediation": "No action needed."
     },
     {
       "id": "security_policy",
@@ -77,10 +77,10 @@ stdout = """
     },
     {
       "id": "changelog",
-      "status": "warn",
-      "severity": "warning",
-      "message": "Missing one of CHANGELOG.md, CHANGES.md, RELEASES.md, docs/CHANGELOG.md",
-      "remediation": "Add one of CHANGELOG.md, CHANGES.md, RELEASES.md, docs/CHANGELOG.md."
+      "status": "pass",
+      "severity": "info",
+      "message": "Changelog or release notes are present",
+      "remediation": "No action needed."
     }
   ]
 }
