@@ -17,6 +17,12 @@ pub enum Profile {
     Go,
     Docker,
     Jvm,
+    Deno,
+    Bun,
+    Dotnet,
+    Php,
+    Ruby,
+    Cpp,
 }
 
 impl Profile {
@@ -30,6 +36,12 @@ impl Profile {
             Profile::Go => "go",
             Profile::Docker => "docker",
             Profile::Jvm => "jvm",
+            Profile::Deno => "deno",
+            Profile::Bun => "bun",
+            Profile::Dotnet => "dotnet",
+            Profile::Php => "php",
+            Profile::Ruby => "ruby",
+            Profile::Cpp => "cpp",
         }
     }
 }
@@ -66,6 +78,24 @@ fn detect(path: &Path) -> Vec<Profile> {
     if has_jvm_files(path) {
         profiles.push(Profile::Jvm);
     }
+    if has_deno_files(path) {
+        profiles.push(Profile::Deno);
+    }
+    if has_bun_files(path) {
+        profiles.push(Profile::Bun);
+    }
+    if has_dotnet_files(path) {
+        profiles.push(Profile::Dotnet);
+    }
+    if has_php_files(path) {
+        profiles.push(Profile::Php);
+    }
+    if has_ruby_files(path) {
+        profiles.push(Profile::Ruby);
+    }
+    if has_cpp_files(path) {
+        profiles.push(Profile::Cpp);
+    }
 
     profiles
 }
@@ -96,6 +126,48 @@ fn has_jvm_files(path: &Path) -> bool {
     .any(|candidate| path.join(candidate).exists())
 }
 
+fn has_deno_files(path: &Path) -> bool {
+    ["deno.json", "deno.jsonc", "deno.lock"]
+        .iter()
+        .any(|candidate| path.join(candidate).exists())
+}
+
+fn has_bun_files(path: &Path) -> bool {
+    ["bun.lock", "bun.lockb", "bunfig.toml"]
+        .iter()
+        .any(|candidate| path.join(candidate).exists())
+        || package_manager_starts_with(path, "bun")
+}
+
+fn has_dotnet_files(path: &Path) -> bool {
+    ["Directory.Build.props", "global.json"]
+        .iter()
+        .any(|candidate| path.join(candidate).exists())
+        || root_has_extension(path, "sln")
+        || root_has_extension(path, "csproj")
+        || root_has_extension(path, "fsproj")
+        || root_has_extension(path, "vbproj")
+}
+
+fn has_php_files(path: &Path) -> bool {
+    path.join("composer.json").exists() || path.join("composer.lock").exists()
+}
+
+fn has_ruby_files(path: &Path) -> bool {
+    path.join("Gemfile").exists()
+        || path.join("Gemfile.lock").exists()
+        || root_has_extension(path, "gemspec")
+}
+
+fn has_cpp_files(path: &Path) -> bool {
+    ["CMakeLists.txt", "Makefile", "meson.build", "configure.ac"]
+        .iter()
+        .any(|candidate| path.join(candidate).exists())
+        || ["c", "cc", "cpp", "cxx", "h", "hpp"]
+            .iter()
+            .any(|extension| root_has_extension(path, extension))
+}
+
 pub(crate) fn inspect(path: &Path, profiles: &[Profile]) -> Vec<Check> {
     let mut checks = Vec::new();
 
@@ -107,6 +179,12 @@ pub(crate) fn inspect(path: &Path, profiles: &[Profile]) -> Vec<Check> {
             Profile::Go => checks.extend(inspect_go(path)),
             Profile::Docker => checks.extend(inspect_docker(path)),
             Profile::Jvm => checks.extend(inspect_jvm(path)),
+            Profile::Deno => checks.extend(inspect_deno(path)),
+            Profile::Bun => checks.extend(inspect_bun(path)),
+            Profile::Dotnet => checks.extend(inspect_dotnet(path)),
+            Profile::Php => checks.extend(inspect_php(path)),
+            Profile::Ruby => checks.extend(inspect_ruby(path)),
+            Profile::Cpp => checks.extend(inspect_cpp(path)),
             Profile::Auto | Profile::Generic => {}
         }
     }
@@ -716,6 +794,370 @@ fn empty_check() -> Check {
         message: String::new(),
         remediation: String::new(),
     }
+}
+
+fn inspect_deno(path: &Path) -> Vec<Check> {
+    let config = ["deno.json", "deno.jsonc"]
+        .iter()
+        .map(|candidate| path.join(candidate))
+        .find(|candidate| candidate.exists());
+
+    let mut checks = vec![check_deno_config(config.as_deref()), check_deno_lock(path)];
+
+    if let Some(config) = config {
+        checks.push(check_deno_tasks(&config));
+    }
+
+    checks
+}
+
+fn check_deno_config(config: Option<&Path>) -> Check {
+    if config.is_some() {
+        pass("deno_config", "Deno config is present")
+    } else {
+        warn(
+            "deno_config",
+            "Deno config is missing",
+            "Add deno.json or deno.jsonc.",
+        )
+    }
+}
+
+fn check_deno_lock(path: &Path) -> Check {
+    if path.join("deno.lock").exists() {
+        pass("deno_lock", "deno.lock is present")
+    } else {
+        warn(
+            "deno_lock",
+            "deno.lock is missing",
+            "Run Deno with lockfile generation enabled and commit deno.lock.",
+        )
+    }
+}
+
+fn check_deno_tasks(config: &Path) -> Check {
+    let contents = match std::fs::read_to_string(config) {
+        Ok(contents) => contents,
+        Err(_) => {
+            return warn(
+                "deno_tasks",
+                "Deno config could not be read",
+                "Make deno.json or deno.jsonc readable.",
+            );
+        }
+    };
+
+    if contents.contains("\"tasks\"") {
+        pass("deno_tasks", "Deno tasks are configured")
+    } else {
+        warn(
+            "deno_tasks",
+            "Deno tasks are missing",
+            "Add a tasks section to deno.json or deno.jsonc.",
+        )
+    }
+}
+
+fn inspect_bun(path: &Path) -> Vec<Check> {
+    let package = read_json(path.join("package.json"));
+
+    let mut checks = vec![check_bun_lockfile(path), check_bun_package_manager(path)];
+    if let Some(package) = package {
+        checks.extend([
+            check_json_string(&package, "bun_package_name", "name", "package.json"),
+            check_node_test_script_with_id(&package, "bun_test_script"),
+        ]);
+    } else {
+        checks.push(warn(
+            "bun_package_json",
+            "package.json is missing",
+            "Add package.json for Bun package metadata.",
+        ));
+    }
+
+    checks
+}
+
+fn check_bun_lockfile(path: &Path) -> Check {
+    if path.join("bun.lock").exists() || path.join("bun.lockb").exists() {
+        pass("bun_lockfile", "Bun lockfile is present")
+    } else {
+        warn(
+            "bun_lockfile",
+            "Bun lockfile is missing",
+            "Run bun install and commit bun.lock or bun.lockb.",
+        )
+    }
+}
+
+fn check_bun_package_manager(path: &Path) -> Check {
+    if package_manager_starts_with(path, "bun") {
+        pass("bun_package_manager", "packageManager is set to Bun")
+    } else {
+        warn(
+            "bun_package_manager",
+            "packageManager is not set to Bun",
+            "Set packageManager to a Bun version in package.json.",
+        )
+    }
+}
+
+fn check_node_test_script_with_id(package: &JsonValue, id: &'static str) -> Check {
+    if package
+        .get("scripts")
+        .and_then(|scripts| scripts.get("test"))
+        .and_then(JsonValue::as_str)
+        .is_some_and(|script| !script.trim().is_empty())
+    {
+        pass(id, "package.json scripts.test is set")
+    } else {
+        warn(
+            id,
+            "package.json scripts.test is missing",
+            "Add a `test` script to package.json.",
+        )
+    }
+}
+
+fn inspect_dotnet(path: &Path) -> Vec<Check> {
+    vec![
+        check_dotnet_project_or_solution(path),
+        check_dotnet_global_json(path),
+        check_dotnet_test_project(path),
+    ]
+}
+
+fn check_dotnet_project_or_solution(path: &Path) -> Check {
+    if root_has_extension(path, "sln")
+        || root_has_extension(path, "csproj")
+        || root_has_extension(path, "fsproj")
+        || root_has_extension(path, "vbproj")
+    {
+        pass("dotnet_project", ".NET solution or project file is present")
+    } else {
+        warn(
+            "dotnet_project",
+            ".NET solution or project file is missing",
+            "Add a .sln, .csproj, .fsproj, or .vbproj file.",
+        )
+    }
+}
+
+fn check_dotnet_global_json(path: &Path) -> Check {
+    if path.join("global.json").exists() {
+        pass(
+            "dotnet_global_json",
+            ".NET SDK version is pinned with global.json",
+        )
+    } else {
+        warn(
+            "dotnet_global_json",
+            ".NET SDK version is not pinned",
+            "Add global.json to pin the .NET SDK version.",
+        )
+    }
+}
+
+fn check_dotnet_test_project(path: &Path) -> Check {
+    let has_test_project = root_file_names(path).iter().any(|name| {
+        name.ends_with("Tests.csproj")
+            || name.ends_with(".Tests.csproj")
+            || name.ends_with("Test.csproj")
+            || name.ends_with(".Test.csproj")
+    });
+
+    if has_test_project {
+        pass("dotnet_tests", ".NET test project is present")
+    } else {
+        warn(
+            "dotnet_tests",
+            ".NET test project is missing",
+            "Add a test project such as Project.Tests.csproj.",
+        )
+    }
+}
+
+fn inspect_php(path: &Path) -> Vec<Check> {
+    let composer = match read_json(path.join("composer.json")) {
+        Some(value) => value,
+        None => {
+            return vec![warn(
+                "php_composer_json",
+                "composer.json is missing or invalid",
+                "Add a valid composer.json.",
+            )];
+        }
+    };
+
+    vec![
+        check_json_string(&composer, "php_name", "name", "composer.json"),
+        check_json_string(&composer, "php_description", "description", "composer.json"),
+        check_json_present(&composer, "php_license", "license", "composer.json"),
+        check_json_present(&composer, "php_require", "require", "composer.json"),
+        check_php_test_script(&composer),
+        check_php_lockfile(path),
+    ]
+}
+
+fn check_php_test_script(composer: &JsonValue) -> Check {
+    if composer
+        .get("scripts")
+        .and_then(|scripts| scripts.get("test"))
+        .is_some()
+    {
+        pass("php_test_script", "composer.json scripts.test is set")
+    } else {
+        warn(
+            "php_test_script",
+            "composer.json scripts.test is missing",
+            "Add a test script to composer.json.",
+        )
+    }
+}
+
+fn check_php_lockfile(path: &Path) -> Check {
+    if path.join("composer.lock").exists() {
+        pass("php_composer_lock", "composer.lock is present")
+    } else {
+        warn(
+            "php_composer_lock",
+            "composer.lock is missing",
+            "Run composer install or composer update and commit composer.lock for applications.",
+        )
+    }
+}
+
+fn inspect_ruby(path: &Path) -> Vec<Check> {
+    vec![
+        check_ruby_gemfile(path),
+        check_ruby_lockfile(path),
+        check_ruby_gemspec(path),
+    ]
+}
+
+fn check_ruby_gemfile(path: &Path) -> Check {
+    if path.join("Gemfile").exists() {
+        pass("ruby_gemfile", "Gemfile is present")
+    } else {
+        warn("ruby_gemfile", "Gemfile is missing", "Add a Gemfile.")
+    }
+}
+
+fn check_ruby_lockfile(path: &Path) -> Check {
+    if path.join("Gemfile.lock").exists() {
+        pass("ruby_gemfile_lock", "Gemfile.lock is present")
+    } else {
+        warn(
+            "ruby_gemfile_lock",
+            "Gemfile.lock is missing",
+            "Run bundle install and commit Gemfile.lock for applications.",
+        )
+    }
+}
+
+fn check_ruby_gemspec(path: &Path) -> Check {
+    if root_has_extension(path, "gemspec") {
+        pass("ruby_gemspec", "Ruby gemspec is present")
+    } else {
+        warn(
+            "ruby_gemspec",
+            "Ruby gemspec is missing",
+            "Add a .gemspec file for libraries, or ignore this warning for applications.",
+        )
+    }
+}
+
+fn inspect_cpp(path: &Path) -> Vec<Check> {
+    vec![
+        check_cpp_build_system(path),
+        check_cpp_compile_commands(path),
+        check_cpp_dependency_manifest(path),
+    ]
+}
+
+fn check_cpp_build_system(path: &Path) -> Check {
+    let candidates = ["CMakeLists.txt", "Makefile", "meson.build", "configure.ac"];
+
+    if candidates
+        .iter()
+        .any(|candidate| path.join(candidate).exists())
+    {
+        pass("cpp_build_system", "C/C++ build system file is present")
+    } else {
+        warn(
+            "cpp_build_system",
+            "C/C++ build system file is missing",
+            format!("Add one of {}.", candidates.join(", ")),
+        )
+    }
+}
+
+fn check_cpp_compile_commands(path: &Path) -> Check {
+    if path.join("compile_commands.json").exists()
+        || path.join("CMakePresets.json").exists()
+        || path.join("CMakeUserPresets.json").exists()
+    {
+        pass("cpp_tooling_metadata", "C/C++ tooling metadata is present")
+    } else {
+        warn(
+            "cpp_tooling_metadata",
+            "C/C++ tooling metadata is missing",
+            "Add compile_commands.json or CMakePresets.json for editor and analysis tooling.",
+        )
+    }
+}
+
+fn check_cpp_dependency_manifest(path: &Path) -> Check {
+    if path.join("vcpkg.json").exists()
+        || path.join("conanfile.txt").exists()
+        || path.join("conanfile.py").exists()
+    {
+        pass(
+            "cpp_dependency_manifest",
+            "C/C++ dependency manifest is present",
+        )
+    } else {
+        warn(
+            "cpp_dependency_manifest",
+            "C/C++ dependency manifest is missing",
+            "Add vcpkg.json or conanfile.* when the project has external dependencies.",
+        )
+    }
+}
+
+fn read_json(path: impl AsRef<Path>) -> Option<JsonValue> {
+    let contents = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str::<JsonValue>(&contents).ok()
+}
+
+fn package_manager_starts_with(path: &Path, prefix: &str) -> bool {
+    read_json(path.join("package.json"))
+        .and_then(|package| {
+            package
+                .get("packageManager")
+                .and_then(JsonValue::as_str)
+                .map(str::to_owned)
+        })
+        .is_some_and(|package_manager| package_manager.starts_with(prefix))
+}
+
+fn root_has_extension(path: &Path, extension: &str) -> bool {
+    root_file_names(path).iter().any(|name| {
+        Path::new(name)
+            .extension()
+            .is_some_and(|candidate| candidate == extension)
+    })
+}
+
+fn root_file_names(path: &Path) -> Vec<String> {
+    let Ok(entries) = path.read_dir() else {
+        return Vec::new();
+    };
+
+    entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .collect()
 }
 
 fn inspect_jvm(path: &Path) -> Vec<Check> {

@@ -36,7 +36,7 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Validate the target path exists and is a directory.
 - [x] Keep JSON output stable and document the report schema.
 - [x] Split check logic into focused modules instead of growing `src/lib.rs`.
-- [x] Add `--profile generic|auto|rust|node|python|go|docker|jvm`.
+- [x] Add `--profile generic|auto|rust|node|python|go|docker|jvm|deno|bun|dotnet|php|ruby|cpp`.
 - [x] Default `--profile` to `auto`.
 - [x] Support common README names such as `README.md`, `README`, and `README.txt`.
 - [x] Support common license names such as `LICENSE`, `LICENSE.md`, and `LICENSE.txt`.
@@ -61,6 +61,7 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Detect Docker/container projects by Dockerfile, Containerfile, Compose,
       or `.dockerignore`.
 - [x] Detect JVM projects by Maven or Gradle build files.
+- [x] Detect Deno, Bun, .NET, PHP, Ruby, and C/C++ projects.
 - [x] Ensure `--profile generic` runs core checks only.
 
 ### P1 - Rust project hygiene
@@ -113,6 +114,15 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Check Maven/Gradle wrapper presence.
 - [x] Check Maven `groupId`, `artifactId`, and `version`.
 - [x] Check Gradle settings, group, version, and test task hints.
+
+### P1 - Additional high-share ecosystem profiles
+
+- [x] Deno: config, lockfile, and tasks.
+- [x] Bun: lockfile, package manager metadata, package name, and test script.
+- [x] .NET: solution/project files, SDK pinning, and test project hints.
+- [x] PHP: Composer metadata, requirements, test script, and lockfile.
+- [x] Ruby: Gemfile, Gemfile.lock, and gemspec hints.
+- [x] C/C++: build system, tooling metadata, and dependency manifest hints.
 
 ### P1 - GitHub Actions local checks
 

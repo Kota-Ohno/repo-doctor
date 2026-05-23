@@ -206,6 +206,12 @@ mod tests {
         assert!(!output.text.contains("go_"));
         assert!(!output.text.contains("docker_"));
         assert!(!output.text.contains("jvm_"));
+        assert!(!output.text.contains("deno_"));
+        assert!(!output.text.contains("bun_"));
+        assert!(!output.text.contains("dotnet_"));
+        assert!(!output.text.contains("php_"));
+        assert!(!output.text.contains("ruby_"));
+        assert!(!output.text.contains("cpp_"));
     }
 
     #[test]
@@ -318,6 +324,117 @@ requires = ["setuptools"]
 
         assert!(output.text.contains("[PASS] jvm_build_file"));
         assert!(output.text.contains("[PASS] jvm_maven_artifact_id"));
+    }
+
+    #[test]
+    fn explicit_deno_profile_runs_deno_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("deno.json"),
+            r#"{ "tasks": { "test": "deno test" } }"#,
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("deno.lock"), "{}\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Deno, None).unwrap();
+
+        assert!(output.text.contains("[PASS] deno_config"));
+        assert!(output.text.contains("[PASS] deno_tasks"));
+    }
+
+    #[test]
+    fn explicit_bun_profile_runs_bun_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("package.json"),
+            r#"{
+  "name": "demo",
+  "packageManager": "bun@1.2.0",
+  "scripts": { "test": "bun test" }
+}"#,
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("bun.lock"), "\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Bun, None).unwrap();
+
+        assert!(output.text.contains("[PASS] bun_lockfile"));
+        assert!(output.text.contains("[PASS] bun_package_manager"));
+    }
+
+    #[test]
+    fn explicit_dotnet_profile_runs_dotnet_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(temp_dir.path().join("Demo.sln"), "\n").unwrap();
+        fs::write(temp_dir.path().join("Demo.Tests.csproj"), "<Project />\n").unwrap();
+        fs::write(temp_dir.path().join("global.json"), "{}\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Dotnet, None).unwrap();
+
+        assert!(output.text.contains("[PASS] dotnet_project"));
+        assert!(output.text.contains("[PASS] dotnet_tests"));
+    }
+
+    #[test]
+    fn explicit_php_profile_runs_php_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("composer.json"),
+            r#"{
+  "name": "example/demo",
+  "description": "Demo",
+  "license": "MIT",
+  "require": { "php": "^8.3" },
+  "scripts": { "test": "phpunit" }
+}"#,
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("composer.lock"), "{}\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Php, None).unwrap();
+
+        assert!(output.text.contains("[PASS] php_name"));
+        assert!(output.text.contains("[PASS] php_composer_lock"));
+    }
+
+    #[test]
+    fn explicit_ruby_profile_runs_ruby_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("Gemfile"),
+            "source 'https://rubygems.org'\n",
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("Gemfile.lock"), "\n").unwrap();
+        fs::write(
+            temp_dir.path().join("demo.gemspec"),
+            "Gem::Specification.new\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Ruby, None).unwrap();
+
+        assert!(output.text.contains("[PASS] ruby_gemfile"));
+        assert!(output.text.contains("[PASS] ruby_gemspec"));
+    }
+
+    #[test]
+    fn explicit_cpp_profile_runs_cpp_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(temp_dir.path().join("CMakeLists.txt"), "project(demo)\n").unwrap();
+        fs::write(temp_dir.path().join("compile_commands.json"), "[]\n").unwrap();
+        fs::write(temp_dir.path().join("vcpkg.json"), "{}\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Cpp, None).unwrap();
+
+        assert!(output.text.contains("[PASS] cpp_build_system"));
+        assert!(output.text.contains("[PASS] cpp_tooling_metadata"));
     }
 
     #[test]
