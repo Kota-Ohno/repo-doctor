@@ -3,7 +3,7 @@ args = "check"
 stdout = """
 Repository: .
 Profiles: rust
-Summary: 26 passed, 0 warnings, score 100
+Summary: 27 passed, 0 warnings, score 100
 [PASS] readme: README is present
 [PASS] license: License file is present
 [PASS] gitignore: .gitignore is present
@@ -30,4 +30,5 @@ Summary: 26 passed, 0 warnings, score 100
 [PASS] rust_workspace: Cargo manifest is a package crate
 [PASS] rust_cargo_lock: Cargo.lock is present
 [PASS] rust_gitignore_target: .gitignore excludes Rust build output
+[PASS] rust_readme_commands: README documents Rust usage and test commands
 """

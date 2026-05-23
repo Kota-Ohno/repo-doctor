@@ -212,6 +212,8 @@ mod tests {
         assert!(!output.text.contains("php_"));
         assert!(!output.text.contains("ruby_"));
         assert!(!output.text.contains("cpp_"));
+        assert!(!output.text.contains("swift_"));
+        assert!(!output.text.contains("kotlin_"));
     }
 
     #[test]
@@ -438,6 +440,61 @@ requires = ["setuptools"]
     }
 
     #[test]
+    fn explicit_swift_profile_runs_swift_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("Package.swift"),
+            "// swift-tools-version: 6.0\n",
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("Package.resolved"), "{}\n").unwrap();
+        fs::create_dir(temp_dir.path().join("Tests")).unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Swift, None).unwrap();
+
+        assert!(output.text.contains("[PASS] swift_package"));
+        assert!(output.text.contains("[PASS] swift_tests"));
+    }
+
+    #[test]
+    fn explicit_kotlin_profile_runs_kotlin_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("build.gradle.kts"),
+            "plugins { kotlin(\"jvm\") version \"2.2.0\" }\n",
+        )
+        .unwrap();
+        fs::create_dir_all(temp_dir.path().join("src/main/kotlin")).unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Kotlin, None).unwrap();
+
+        assert!(output.text.contains("[PASS] kotlin_build_file"));
+        assert!(output.text.contains("[PASS] kotlin_plugin"));
+    }
+
+    #[test]
+    fn legacy_python_profile_reports_legacy_files() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("setup.py"),
+            "from setuptools import setup\n",
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("requirements.txt"), "pytest\n").unwrap();
+        fs::create_dir(temp_dir.path().join("tests")).unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Python, None).unwrap();
+
+        assert!(output.text.contains("[WARN] python_pyproject"));
+        assert!(output.text.contains("[PASS] python_legacy_setup"));
+        assert!(output.text.contains("[PASS] python_requirements"));
+        assert!(output.text.contains("[PASS] python_tests"));
+    }
+
+    #[test]
     fn rejects_missing_repository_path() {
         let temp_dir = tempfile::tempdir().unwrap();
         let missing_path = temp_dir.path().join("missing");
@@ -574,7 +631,11 @@ requires = ["setuptools"]
     }
 
     fn write_rust_fixture(path: &Path) {
-        fs::write(path.join("README.md"), "# Test\n").unwrap();
+        fs::write(
+            path.join("README.md"),
+            "# Test\n\nRun `test --help` and `cargo test`.\n",
+        )
+        .unwrap();
         fs::write(path.join("LICENSE"), "MIT\n").unwrap();
         fs::write(path.join(".gitignore"), "/target\n").unwrap();
         fs::write(

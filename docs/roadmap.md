@@ -36,7 +36,7 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Validate the target path exists and is a directory.
 - [x] Keep JSON output stable and document the report schema.
 - [x] Split check logic into focused modules instead of growing `src/lib.rs`.
-- [x] Add `--profile generic|auto|rust|node|python|go|docker|jvm|deno|bun|dotnet|php|ruby|cpp`.
+- [x] Add `--profile generic|auto|rust|node|python|go|docker|jvm|deno|bun|dotnet|php|ruby|cpp|swift|kotlin`.
 - [x] Default `--profile` to `auto`.
 - [x] Support common README names such as `README.md`, `README`, and `README.txt`.
 - [x] Support common license names such as `LICENSE`, `LICENSE.md`, and `LICENSE.txt`.
@@ -61,7 +61,7 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Detect Docker/container projects by Dockerfile, Containerfile, Compose,
       or `.dockerignore`.
 - [x] Detect JVM projects by Maven or Gradle build files.
-- [x] Detect Deno, Bun, .NET, PHP, Ruby, and C/C++ projects.
+- [x] Detect Deno, Bun, .NET, PHP, Ruby, C/C++, Swift, and Kotlin projects.
 - [x] Ensure `--profile generic` runs core checks only.
 
 ### P1 - Rust project hygiene
@@ -74,8 +74,8 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Warn when binary crates lack `Cargo.lock`.
 - [x] Detect workspace roots and member crates.
 - [x] Check `.gitignore` includes Rust build artifacts such as `/target`.
-- [ ] Check README includes basic install, usage, and development commands.
-- [ ] Check README command examples mention the package or binary name.
+- [x] Check README includes basic install, usage, and development commands.
+- [x] Check README command examples mention the package or binary name.
 
 ### P1 - Node.js project hygiene
 
@@ -123,6 +123,8 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] PHP: Composer metadata, requirements, test script, and lockfile.
 - [x] Ruby: Gemfile, Gemfile.lock, and gemspec hints.
 - [x] C/C++: build system, tooling metadata, and dependency manifest hints.
+- [x] Swift: Package.swift, Package.resolved, and Tests directory hints.
+- [x] Kotlin: Gradle build file, Kotlin plugin, and source path hints.
 
 ### P1 - GitHub Actions local checks
 

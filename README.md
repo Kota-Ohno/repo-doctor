@@ -19,7 +19,7 @@ files and ecosystem-specific metadata are present. It currently checks for:
 - Container metadata when Docker or Compose files are detected
 - JVM metadata when Maven or Gradle files are detected
 - Deno and Bun metadata for TypeScript/JavaScript runtimes
-- .NET, PHP, Ruby, and C/C++ project metadata
+- .NET, PHP, Ruby, C/C++, Swift, and Kotlin project metadata
 
 By default, `check` runs core repository checks plus auto-detected ecosystem
 profiles. Use `--profile generic` for language-independent checks only, or
@@ -52,7 +52,11 @@ cargo run -- check --profile dotnet
 cargo run -- check --profile php
 cargo run -- check --profile ruby
 cargo run -- check --profile cpp
+cargo run -- check --profile swift
+cargo run -- check --profile kotlin
 cargo run -- check --fail-on warn
+cargo test
+cargo clippy --all-targets --all-features -- -D warnings
 cargo c
 cargo lint
 cargo fmtc

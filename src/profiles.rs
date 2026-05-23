@@ -23,6 +23,8 @@ pub enum Profile {
     Php,
     Ruby,
     Cpp,
+    Swift,
+    Kotlin,
 }
 
 impl Profile {
@@ -42,6 +44,8 @@ impl Profile {
             Profile::Php => "php",
             Profile::Ruby => "ruby",
             Profile::Cpp => "cpp",
+            Profile::Swift => "swift",
+            Profile::Kotlin => "kotlin",
         }
     }
 }
@@ -95,6 +99,12 @@ fn detect(path: &Path) -> Vec<Profile> {
     }
     if has_cpp_files(path) {
         profiles.push(Profile::Cpp);
+    }
+    if has_swift_files(path) {
+        profiles.push(Profile::Swift);
+    }
+    if has_kotlin_files(path) {
+        profiles.push(Profile::Kotlin);
     }
 
     profiles
@@ -168,6 +178,18 @@ fn has_cpp_files(path: &Path) -> bool {
             .any(|extension| root_has_extension(path, extension))
 }
 
+fn has_swift_files(path: &Path) -> bool {
+    path.join("Package.swift").exists() || path.join("Package.resolved").exists()
+}
+
+fn has_kotlin_files(path: &Path) -> bool {
+    path.join("build.gradle.kts").exists()
+        || path.join("settings.gradle.kts").exists()
+        || path.join("src/main/kotlin").exists()
+        || root_has_extension(path, "kt")
+        || root_has_extension(path, "kts")
+}
+
 pub(crate) fn inspect(path: &Path, profiles: &[Profile]) -> Vec<Check> {
     let mut checks = Vec::new();
 
@@ -185,6 +207,8 @@ pub(crate) fn inspect(path: &Path, profiles: &[Profile]) -> Vec<Check> {
             Profile::Php => checks.extend(inspect_php(path)),
             Profile::Ruby => checks.extend(inspect_ruby(path)),
             Profile::Cpp => checks.extend(inspect_cpp(path)),
+            Profile::Swift => checks.extend(inspect_swift(path)),
+            Profile::Kotlin => checks.extend(inspect_kotlin(path)),
             Profile::Auto | Profile::Generic => {}
         }
     }
@@ -259,6 +283,7 @@ fn inspect_rust(path: &Path) -> Vec<Check> {
         check_rust_workspace(&parsed),
         check_cargo_lock(path),
         check_gitignore_target(path),
+        check_rust_readme_commands(path, package),
     ];
 
     checks.retain(|check| !check.id.is_empty());
@@ -388,6 +413,36 @@ fn check_gitignore_target(path: &Path) -> Check {
             "rust_gitignore_target",
             ".gitignore does not exclude Rust build output",
             "Add /target to .gitignore.",
+        )
+    }
+}
+
+fn check_rust_readme_commands(path: &Path, package: &toml::map::Map<String, toml::Value>) -> Check {
+    let Some(readme) = read_readme(path) else {
+        return warn(
+            "rust_readme_commands",
+            "README could not be read for Rust command examples",
+            "Add a readable README with cargo test and usage examples.",
+        );
+    };
+
+    let package_name = package
+        .get("name")
+        .and_then(toml::Value::as_str)
+        .unwrap_or_default();
+    let mentions_usage = !package_name.is_empty() && readme.contains(package_name);
+    let mentions_tests = readme.contains("cargo test") || readme.contains("cargo nextest");
+
+    if mentions_usage && mentions_tests {
+        pass(
+            "rust_readme_commands",
+            "README documents Rust usage and test commands",
+        )
+    } else {
+        warn(
+            "rust_readme_commands",
+            "README is missing Rust usage or test commands",
+            "Document how to run the crate and include cargo test or cargo nextest.",
         )
     }
 }
@@ -522,12 +577,21 @@ fn inspect_python(path: &Path) -> Vec<Check> {
     if path.join("pyproject.toml").exists() {
         inspect_pyproject(path)
     } else {
-        vec![warn(
+        inspect_legacy_python(path)
+    }
+}
+
+fn inspect_legacy_python(path: &Path) -> Vec<Check> {
+    vec![
+        warn(
             "python_pyproject",
             "pyproject.toml is missing",
             "Add pyproject.toml for Python project metadata.",
-        )]
-    }
+        ),
+        check_legacy_python_setup(path),
+        check_legacy_python_requirements(path),
+        check_python_tests(path),
+    ]
 }
 
 fn inspect_pyproject(path: &Path) -> Vec<Check> {
@@ -580,8 +644,51 @@ fn inspect_pyproject(path: &Path) -> Vec<Check> {
 
     checks.push(check_python_build_system(&parsed));
     checks.push(check_python_lockfile(path));
+    checks.push(check_python_tests(path));
     checks.retain(|check| !check.id.is_empty());
     checks
+}
+
+fn check_legacy_python_setup(path: &Path) -> Check {
+    if path.join("setup.py").exists() || path.join("setup.cfg").exists() {
+        pass("python_legacy_setup", "Legacy Python setup file is present")
+    } else {
+        warn(
+            "python_legacy_setup",
+            "Legacy Python setup file is missing",
+            "Add setup.py/setup.cfg or migrate project metadata to pyproject.toml.",
+        )
+    }
+}
+
+fn check_legacy_python_requirements(path: &Path) -> Check {
+    match std::fs::read_to_string(path.join("requirements.txt")) {
+        Ok(contents) if !contents.trim().is_empty() => {
+            pass("python_requirements", "requirements.txt is present")
+        }
+        Ok(_) => warn(
+            "python_requirements",
+            "requirements.txt is empty",
+            "Add dependencies or remove the empty requirements.txt file.",
+        ),
+        Err(_) => warn(
+            "python_requirements",
+            "requirements.txt is missing",
+            "Add requirements.txt or a lockfile for legacy Python projects.",
+        ),
+    }
+}
+
+fn check_python_tests(path: &Path) -> Check {
+    if path.join("tests").exists() || path.join("test").exists() {
+        pass("python_tests", "Python test directory is present")
+    } else {
+        warn(
+            "python_tests",
+            "Python test directory is missing",
+            "Add tests/ or test/ so automated test discovery is clear.",
+        )
+    }
 }
 
 fn check_python_license(project: &toml::map::Map<String, toml::Value>) -> Check {
@@ -1125,9 +1232,133 @@ fn check_cpp_dependency_manifest(path: &Path) -> Check {
     }
 }
 
+fn inspect_swift(path: &Path) -> Vec<Check> {
+    vec![
+        check_swift_package(path),
+        check_swift_package_resolved(path),
+        check_swift_tests(path),
+    ]
+}
+
+fn check_swift_package(path: &Path) -> Check {
+    if path.join("Package.swift").exists() {
+        pass("swift_package", "Swift Package.swift is present")
+    } else {
+        warn(
+            "swift_package",
+            "Swift Package.swift is missing",
+            "Add Package.swift for Swift Package Manager projects.",
+        )
+    }
+}
+
+fn check_swift_package_resolved(path: &Path) -> Check {
+    if path.join("Package.resolved").exists() {
+        pass(
+            "swift_package_resolved",
+            "Swift Package.resolved is present",
+        )
+    } else {
+        warn(
+            "swift_package_resolved",
+            "Swift Package.resolved is missing",
+            "Commit Package.resolved when package dependencies are used.",
+        )
+    }
+}
+
+fn check_swift_tests(path: &Path) -> Check {
+    if path.join("Tests").exists() {
+        pass("swift_tests", "Swift Tests directory is present")
+    } else {
+        warn(
+            "swift_tests",
+            "Swift Tests directory is missing",
+            "Add a Tests directory for Swift Package Manager tests.",
+        )
+    }
+}
+
+fn inspect_kotlin(path: &Path) -> Vec<Check> {
+    let build_file = ["build.gradle.kts", "build.gradle"]
+        .iter()
+        .map(|candidate| path.join(candidate))
+        .find(|candidate| candidate.exists());
+
+    vec![
+        check_kotlin_build_file(build_file.as_deref()),
+        check_kotlin_plugin(build_file.as_deref()),
+        check_kotlin_sources(path),
+    ]
+}
+
+fn check_kotlin_build_file(build_file: Option<&Path>) -> Check {
+    if build_file.is_some() {
+        pass("kotlin_build_file", "Kotlin Gradle build file is present")
+    } else {
+        warn(
+            "kotlin_build_file",
+            "Kotlin Gradle build file is missing",
+            "Add build.gradle.kts or build.gradle for Kotlin builds.",
+        )
+    }
+}
+
+fn check_kotlin_plugin(build_file: Option<&Path>) -> Check {
+    let Some(build_file) = build_file else {
+        return empty_check();
+    };
+
+    let contents = match std::fs::read_to_string(build_file) {
+        Ok(contents) => contents,
+        Err(_) => {
+            return warn(
+                "kotlin_plugin",
+                "Kotlin build file could not be read",
+                "Make the Gradle build file readable.",
+            );
+        }
+    };
+
+    if contents.contains("org.jetbrains.kotlin")
+        || contents.contains("kotlin(\"")
+        || contents.contains("kotlin(")
+    {
+        pass("kotlin_plugin", "Kotlin Gradle plugin is configured")
+    } else {
+        warn(
+            "kotlin_plugin",
+            "Kotlin Gradle plugin is missing",
+            "Configure the org.jetbrains.kotlin Gradle plugin.",
+        )
+    }
+}
+
+fn check_kotlin_sources(path: &Path) -> Check {
+    if path.join("src/main/kotlin").exists()
+        || path.join("src/test/kotlin").exists()
+        || root_has_extension(path, "kt")
+        || root_has_extension(path, "kts")
+    {
+        pass("kotlin_sources", "Kotlin source path is present")
+    } else {
+        warn(
+            "kotlin_sources",
+            "Kotlin source path is missing",
+            "Add src/main/kotlin or Kotlin source files.",
+        )
+    }
+}
+
 fn read_json(path: impl AsRef<Path>) -> Option<JsonValue> {
     let contents = std::fs::read_to_string(path).ok()?;
     serde_json::from_str::<JsonValue>(&contents).ok()
+}
+
+fn read_readme(path: &Path) -> Option<String> {
+    ["README.md", "README", "README.txt"]
+        .iter()
+        .find_map(|candidate| std::fs::read_to_string(path.join(candidate)).ok())
 }
 
 fn package_manager_starts_with(path: &Path, prefix: &str) -> bool {
