@@ -8,13 +8,9 @@ This repository is checked with `repo-doctor github Kota-Ohno/repo-doctor`.
 - Dependabot vulnerability alerts are enabled.
 - Repository homepage is set.
 - Initial GitHub release `v0.1.0` exists.
+- The repository is public.
+- Default branch protection is enabled for `main`.
 
 ## Branch Protection
 
-The default branch should use branch protection when the repository plan allows
-it. The current GitHub API response for enabling protection is:
-
-> Upgrade to GitHub Pro or make this repository public to enable this feature.
-
-Until that constraint changes, branch protection is documented as intentionally
-blocked rather than absent by oversight.
+The default branch uses branch protection now that the repository is public.
