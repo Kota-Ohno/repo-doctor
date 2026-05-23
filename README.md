@@ -1,20 +1,25 @@
 # repo-doctor
 
-A small Rust CLI that checks repository hygiene.
+A local-first CLI that checks repository readiness.
 
 `repo-doctor` inspects a repository directory and reports whether basic project
-files are present. It currently checks for:
+files and ecosystem-specific metadata are present. It currently checks for:
 
 - `README.md`
 - a license file
 - `.gitignore`
-- `Cargo.toml`
 - `.github/workflows`
 - community health files such as contributing, security, issue, PR, conduct,
   and changelog files
-- Rust package metadata in `Cargo.toml`
-- `Cargo.lock`
-- Rust build output in `.gitignore`
+- Rust package metadata when `Cargo.toml` is detected
+- Node.js package metadata when `package.json` is detected
+- Python package metadata when `pyproject.toml`, `setup.py`, or
+  `requirements.txt` is detected
+- Go module metadata when `go.mod` is detected
+
+By default, `check` runs core repository checks plus auto-detected ecosystem
+profiles. Use `--profile generic` for language-independent checks only, or
+select a profile explicitly.
 
 ## Requirements
 
@@ -29,6 +34,11 @@ files are present. It currently checks for:
 cargo run -- check
 cargo run -- check /path/to/repo
 cargo run -- check --format json
+cargo run -- check --profile generic
+cargo run -- check --profile rust
+cargo run -- check --profile node
+cargo run -- check --profile python
+cargo run -- check --profile go
 cargo run -- check --fail-on warn
 cargo c
 cargo lint

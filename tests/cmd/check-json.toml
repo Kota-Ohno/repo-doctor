@@ -27,13 +27,6 @@ stdout = """
       "remediation": "No action needed."
     },
     {
-      "id": "cargo_toml",
-      "status": "pass",
-      "severity": "info",
-      "message": "Cargo.toml is present",
-      "remediation": "No action needed."
-    },
-    {
       "id": "github_actions",
       "status": "pass",
       "severity": "info",
@@ -83,77 +76,84 @@ stdout = """
       "remediation": "No action needed."
     },
     {
-      "id": "cargo_name",
+      "id": "rust_cargo_name",
       "status": "pass",
       "severity": "info",
       "message": "Cargo package `name` is set",
       "remediation": "No action needed."
     },
     {
-      "id": "cargo_version",
+      "id": "rust_cargo_version",
       "status": "pass",
       "severity": "info",
       "message": "Cargo package `version` is set",
       "remediation": "No action needed."
     },
     {
-      "id": "cargo_edition",
+      "id": "rust_cargo_edition",
       "status": "pass",
       "severity": "info",
       "message": "Cargo package `edition` is set",
       "remediation": "No action needed."
     },
     {
-      "id": "cargo_rust_version",
+      "id": "rust_cargo_rust_version",
       "status": "pass",
       "severity": "info",
       "message": "Cargo package `rust-version` is set",
       "remediation": "No action needed."
     },
     {
-      "id": "cargo_description",
+      "id": "rust_cargo_description",
       "status": "pass",
       "severity": "info",
       "message": "Cargo package `description` is set",
       "remediation": "No action needed."
     },
     {
-      "id": "cargo_repository",
+      "id": "rust_cargo_repository",
       "status": "pass",
       "severity": "info",
       "message": "Cargo package `repository` is set",
       "remediation": "No action needed."
     },
     {
-      "id": "cargo_readme",
+      "id": "rust_cargo_readme",
       "status": "pass",
       "severity": "info",
       "message": "Cargo package `readme` is set",
       "remediation": "No action needed."
     },
     {
-      "id": "cargo_license",
+      "id": "rust_cargo_license",
       "status": "pass",
       "severity": "info",
       "message": "Cargo package license metadata is set",
       "remediation": "No action needed."
     },
     {
-      "id": "cargo_readme_path",
+      "id": "rust_cargo_readme_path",
       "status": "pass",
       "severity": "info",
-      "message": "Cargo package `readme` path exists",
+      "message": "Manifest `readme` path exists",
       "remediation": "No action needed."
     },
     {
-      "id": "cargo_lock",
+      "id": "rust_workspace",
+      "status": "pass",
+      "severity": "info",
+      "message": "Cargo manifest is a package crate",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "rust_cargo_lock",
       "status": "pass",
       "severity": "info",
       "message": "Cargo.lock is present",
       "remediation": "No action needed."
     },
     {
-      "id": "gitignore_target",
+      "id": "rust_gitignore_target",
       "status": "pass",
       "severity": "info",
       "message": ".gitignore excludes Rust build output",

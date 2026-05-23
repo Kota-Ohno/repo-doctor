@@ -5,7 +5,6 @@ Repository: .
 [PASS] readme: README is present
 [PASS] license: License file is present
 [PASS] gitignore: .gitignore is present
-[PASS] cargo_toml: Cargo.toml is present
 [PASS] github_actions: GitHub Actions workflow file is present
 [PASS] contributing: Contribution guide is present
 [PASS] code_of_conduct: Code of conduct is present
@@ -13,15 +12,16 @@ Repository: .
 [PASS] issue_templates: Issue template is present
 [PASS] pull_request_template: Pull request template is present
 [PASS] changelog: Changelog or release notes are present
-[PASS] cargo_name: Cargo package `name` is set
-[PASS] cargo_version: Cargo package `version` is set
-[PASS] cargo_edition: Cargo package `edition` is set
-[PASS] cargo_rust_version: Cargo package `rust-version` is set
-[PASS] cargo_description: Cargo package `description` is set
-[PASS] cargo_repository: Cargo package `repository` is set
-[PASS] cargo_readme: Cargo package `readme` is set
-[PASS] cargo_license: Cargo package license metadata is set
-[PASS] cargo_readme_path: Cargo package `readme` path exists
-[PASS] cargo_lock: Cargo.lock is present
-[PASS] gitignore_target: .gitignore excludes Rust build output
+[PASS] rust_cargo_name: Cargo package `name` is set
+[PASS] rust_cargo_version: Cargo package `version` is set
+[PASS] rust_cargo_edition: Cargo package `edition` is set
+[PASS] rust_cargo_rust_version: Cargo package `rust-version` is set
+[PASS] rust_cargo_description: Cargo package `description` is set
+[PASS] rust_cargo_repository: Cargo package `repository` is set
+[PASS] rust_cargo_readme: Cargo package `readme` is set
+[PASS] rust_cargo_license: Cargo package license metadata is set
+[PASS] rust_cargo_readme_path: Manifest `readme` path exists
+[PASS] rust_workspace: Cargo manifest is a package crate
+[PASS] rust_cargo_lock: Cargo.lock is present
+[PASS] rust_gitignore_target: .gitignore excludes Rust build output
 """

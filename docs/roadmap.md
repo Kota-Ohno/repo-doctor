@@ -6,13 +6,17 @@ as Legitify.
 
 ## Positioning
 
-`repo-doctor` should stay a local-first repository readiness checker for Rust
-projects. It should complement broader tools instead of becoming a clone of
-OpenSSF Scorecard or a full SCM security scanner.
+`repo-doctor` should stay a local-first generic repository readiness checker
+with first-class ecosystem profiles. Rust remains a first-class profile, but it
+is no longer the whole product scope. The tool should complement broader tools
+instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 
 ## Product principles
 
 - Keep `repo-doctor check <path>` useful offline.
+- Run language-independent core checks for every repository.
+- Auto-detect ecosystem checks from local files.
+- Do not warn for ecosystems that are not present unless a profile is selected.
 - Prefer explainable structural checks over subjective prose judgments.
 - Use stable rule IDs and machine-readable output from the start.
 - Default to warnings for context-dependent community checks.
@@ -31,7 +35,9 @@ OpenSSF Scorecard or a full SCM security scanner.
 - [x] Add nonzero exit codes with `--fail-on warn`.
 - [x] Validate the target path exists and is a directory.
 - [x] Keep JSON output stable and document the report schema.
-- [ ] Split check logic into focused modules instead of growing `src/lib.rs`.
+- [x] Split check logic into focused modules instead of growing `src/lib.rs`.
+- [x] Add `--profile generic|auto|rust|node|python|go`.
+- [x] Default `--profile` to `auto`.
 - [x] Support common README names such as `README.md`, `README`, and `README.txt`.
 - [x] Support common license names such as `LICENSE`, `LICENSE.md`, and `LICENSE.txt`.
 - [x] Check that `.github/workflows` contains at least one `.yml` or `.yaml` file.
@@ -46,6 +52,14 @@ OpenSSF Scorecard or a full SCM security scanner.
 - [x] Check for `CHANGELOG.md` or release notes.
 - [ ] Validate issue template frontmatter enough to catch empty placeholders.
 
+### P1 - Ecosystem profiles
+
+- [x] Detect Rust by `Cargo.toml`.
+- [x] Detect Node.js by `package.json`.
+- [x] Detect Python by `pyproject.toml`, `setup.py`, or `requirements.txt`.
+- [x] Detect Go by `go.mod`.
+- [x] Ensure `--profile generic` runs core checks only.
+
 ### P1 - Rust project hygiene
 
 - [x] Parse `Cargo.toml` with a TOML parser instead of treating it as a file.
@@ -54,10 +68,33 @@ OpenSSF Scorecard or a full SCM security scanner.
 - [x] Check `[package]` includes `name`, `version`, and `edition`.
 - [x] Check paths referenced by `readme` and `license-file` exist.
 - [x] Warn when binary crates lack `Cargo.lock`.
-- [ ] Detect workspace roots and member crates.
+- [x] Detect workspace roots and member crates.
 - [x] Check `.gitignore` includes Rust build artifacts such as `/target`.
 - [ ] Check README includes basic install, usage, and development commands.
 - [ ] Check README command examples mention the package or binary name.
+
+### P1 - Node.js project hygiene
+
+- [x] Parse `package.json` with `serde_json`.
+- [x] Check `name`, `version`, `description`, `license`, and `repository`.
+- [x] Check `scripts.test`.
+- [x] Check `engines.node`.
+- [x] Check for a package manager lockfile.
+
+### P1 - Python project hygiene
+
+- [x] Detect `pyproject.toml`, `setup.py`, or `requirements.txt`.
+- [x] Parse `pyproject.toml` when present.
+- [x] Check PEP 621 project metadata.
+- [x] Check `build-system`.
+- [x] Check for lockfile or requirements candidates.
+
+### P1 - Go project hygiene
+
+- [x] Detect `go.mod`.
+- [x] Check module declaration.
+- [x] Check Go version directive.
+- [x] Check `go.sum`.
 
 ### P1 - GitHub Actions local checks
 
