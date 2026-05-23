@@ -1,0 +1,10 @@
+[default.extend-words]
+ba = "ba"
+flate = "flate"
+Ono = "Ono"
+ser = "ser"
+
+[files]
+extend-exclude = [
+  "Cargo.lock",
+]

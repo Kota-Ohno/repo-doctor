@@ -1,0 +1,7 @@
+[alias]
+c = "check"
+lint = "clippy --all-targets --all-features -- -D warnings"
+fmtc = "fmt --all --check"
+nt = "nextest run"
+audit-deps = "audit"
+docs = "test --doc"

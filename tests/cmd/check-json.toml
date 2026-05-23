@@ -1,0 +1,34 @@
+bin.name = "repo-doctor"
+args = "check --format json"
+stdout = """
+{
+  "path": ".",
+  "checks": [
+    {
+      "id": "readme",
+      "status": "pass",
+      "message": "README is present"
+    },
+    {
+      "id": "license",
+      "status": "pass",
+      "message": "License file is present"
+    },
+    {
+      "id": "gitignore",
+      "status": "pass",
+      "message": ".gitignore is present"
+    },
+    {
+      "id": "cargo_toml",
+      "status": "pass",
+      "message": "Cargo.toml is present"
+    },
+    {
+      "id": "github_actions",
+      "status": "pass",
+      "message": "GitHub Actions workflow directory is present"
+    }
+  ]
+}
+"""

@@ -1,0 +1,10 @@
+bin.name = "repo-doctor"
+args = "check"
+stdout = """
+Repository: .
+[PASS] readme: README is present
+[PASS] license: License file is present
+[PASS] gitignore: .gitignore is present
+[PASS] cargo_toml: Cargo.toml is present
+[PASS] github_actions: GitHub Actions workflow directory is present
+"""
