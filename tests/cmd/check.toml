@@ -3,7 +3,7 @@ args = "check"
 stdout = """
 Repository: .
 Profiles: rust
-Summary: 22 passed, 0 warnings, score 100
+Summary: 26 passed, 0 warnings, score 100
 [PASS] readme: README is present
 [PASS] license: License file is present
 [PASS] gitignore: .gitignore is present
@@ -14,6 +14,10 @@ Summary: 22 passed, 0 warnings, score 100
 [PASS] issue_templates: Issue template is present
 [PASS] pull_request_template: Pull request template is present
 [PASS] changelog: Changelog or release notes are present
+[PASS] github_actions_triggers: GitHub Actions run on push and pull_request
+[PASS] github_actions_permissions: GitHub Actions permissions are declared
+[PASS] github_actions_pull_request_target: GitHub Actions avoid pull_request_target
+[PASS] github_actions_floating_refs: GitHub Actions avoid floating action refs
 [PASS] rust_cargo_name: Cargo package `name` is set
 [PASS] rust_cargo_version: Cargo package `version` is set
 [PASS] rust_cargo_edition: Cargo package `edition` is set

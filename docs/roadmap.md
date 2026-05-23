@@ -109,11 +109,12 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 ### P1 - GitHub Actions local checks
 
 - [ ] Parse workflow YAML files under `.github/workflows`.
-- [ ] Check CI runs on pull requests and pushes to the default branch.
+- [x] Check CI runs on pull requests and pushes.
 - [ ] Check Rust CI includes `cargo fmt --check`, `cargo clippy`, and tests.
-- [ ] Warn when workflow-level or job-level `permissions` is missing.
-- [ ] Warn on risky `pull_request_target` usage.
-- [ ] Warn on unpinned third-party actions.
+- [x] Warn when workflow-level or job-level `permissions` is missing.
+- [x] Warn on risky `pull_request_target` usage.
+- [x] Warn on floating third-party action refs such as `main`, `master`, or
+      `latest`.
 - [ ] Detect Dependabot or Renovate configuration.
 - [ ] Keep workflow content checks heuristic and warning-oriented until YAML
       parsing is mature.

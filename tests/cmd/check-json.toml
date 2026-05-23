@@ -8,9 +8,9 @@ stdout = """
     "rust"
   ],
   "summary": {
-    "pass": 22,
+    "pass": 26,
     "warn": 0,
-    "total": 22,
+    "total": 26,
     "score": 100
   },
   "checks": [
@@ -82,6 +82,34 @@ stdout = """
       "status": "pass",
       "severity": "info",
       "message": "Changelog or release notes are present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "github_actions_triggers",
+      "status": "pass",
+      "severity": "info",
+      "message": "GitHub Actions run on push and pull_request",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "github_actions_permissions",
+      "status": "pass",
+      "severity": "info",
+      "message": "GitHub Actions permissions are declared",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "github_actions_pull_request_target",
+      "status": "pass",
+      "severity": "info",
+      "message": "GitHub Actions avoid pull_request_target",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "github_actions_floating_refs",
+      "status": "pass",
+      "severity": "info",
+      "message": "GitHub Actions avoid floating action refs",
       "remediation": "No action needed."
     },
     {
