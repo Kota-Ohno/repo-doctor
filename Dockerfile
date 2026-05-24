@@ -1,4 +1,4 @@
-FROM rust:1-slim AS builder
+FROM rust:1-bookworm AS builder
 WORKDIR /src
 COPY . .
 RUN cargo build --release --locked
