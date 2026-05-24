@@ -1,9 +1,25 @@
 param(
     [string]$Version = $env:REPO_DOCTOR_VERSION,
-    [string]$InstallDir = $env:REPO_DOCTOR_INSTALL_DIR
+    [string]$InstallDir = $env:REPO_DOCTOR_INSTALL_DIR,
+    [switch]$Help
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($Help) {
+    @"
+Install repo-doctor.
+
+Usage:
+  install.ps1 [-Version <tag>] [-InstallDir <path>]
+
+Options:
+  -Version     Release tag to install, for example v0.1.0. Default: latest
+  -InstallDir  Directory where repo-doctor.exe is installed. Default: ~/.repo-doctor/bin
+  -Help        Show this help.
+"@ | Write-Host
+    exit 0
+}
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     $Version = "latest"
@@ -25,6 +41,7 @@ New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
 $zip = Join-Path $tmp "repo-doctor.zip"
 $sum = Join-Path $tmp "repo-doctor.zip.sha256"
+Write-Host "Installing repo-doctor $Version for $target"
 Invoke-WebRequest "$base/repo-doctor-$target.zip" -OutFile $zip
 Invoke-WebRequest "$base/repo-doctor-$target.zip.sha256" -OutFile $sum
 
@@ -39,3 +56,6 @@ Copy-Item -Force (Join-Path $tmp "repo-doctor.exe") (Join-Path $InstallDir "repo
 Remove-Item -Recurse -Force $tmp
 
 Write-Host "Installed repo-doctor to $(Join-Path $InstallDir 'repo-doctor.exe')"
+if (($env:PATH -split [System.IO.Path]::PathSeparator) -notcontains $InstallDir) {
+    Write-Host "Add $InstallDir to PATH if repo-doctor is not found by your shell."
+}

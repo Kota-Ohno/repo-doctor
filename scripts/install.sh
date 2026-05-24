@@ -5,6 +5,50 @@ repo="Kota-Ohno/repo-doctor"
 version="${REPO_DOCTOR_VERSION:-latest}"
 bin_dir="${REPO_DOCTOR_INSTALL_DIR:-$HOME/.local/bin}"
 
+usage() {
+  cat <<'EOF'
+Install repo-doctor.
+
+Usage:
+  install.sh [--version <tag>] [--dir <path>]
+
+Options:
+  --version <tag>  Release tag to install, for example v0.1.0. Default: latest
+  --dir <path>     Directory where repo-doctor is installed. Default: ~/.local/bin
+  -h, --help       Show this help.
+EOF
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --version)
+      if [ "$#" -lt 2 ]; then
+        echo "--version requires a value" >&2
+        exit 1
+      fi
+      version="$2"
+      shift 2
+      ;;
+    --dir)
+      if [ "$#" -lt 2 ]; then
+        echo "--dir requires a value" >&2
+        exit 1
+      fi
+      bin_dir="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
 os="$(uname -s)"
 arch="$(uname -m)"
 
@@ -36,6 +80,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 mkdir -p "$bin_dir"
+echo "Installing repo-doctor $version for $target"
 curl -fsSL "$base/repo-doctor-$target.tar.gz" -o "$tmp/repo-doctor.tar.gz"
 curl -fsSL "$base/repo-doctor-$target.tar.gz.sha256" -o "$tmp/repo-doctor.tar.gz.sha256"
 if command -v sha256sum >/dev/null 2>&1; then
@@ -52,3 +97,7 @@ tar -xzf "$tmp/repo-doctor.tar.gz" -C "$tmp"
 install -m 0755 "$tmp/repo-doctor" "$bin_dir/repo-doctor"
 
 echo "Installed repo-doctor to $bin_dir/repo-doctor"
+case ":$PATH:" in
+  *":$bin_dir:"*) ;;
+  *) echo "Add $bin_dir to PATH if repo-doctor is not found by your shell." ;;
+esac

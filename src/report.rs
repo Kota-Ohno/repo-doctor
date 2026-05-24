@@ -280,6 +280,18 @@ impl Report {
             .collect()
     }
 
+    pub fn warning_details(&self) -> Vec<WarningDetail<'_>> {
+        self.checks
+            .iter()
+            .filter(|check| matches!(check.status, CheckStatus::Warn))
+            .map(|check| WarningDetail {
+                id: check.id,
+                message: &check.message,
+                remediation: &check.remediation,
+            })
+            .collect()
+    }
+
     pub fn suppress_warning_ids(&self, ignored_ids: &[String]) -> Self {
         let checks = self
             .checks
@@ -536,6 +548,12 @@ impl Report {
 
         serde_json::to_string_pretty(&sarif)
     }
+}
+
+pub struct WarningDetail<'a> {
+    pub id: &'static str,
+    pub message: &'a str,
+    pub remediation: &'a str,
 }
 
 #[derive(Clone, Debug, Serialize)]

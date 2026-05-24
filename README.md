@@ -44,13 +44,21 @@ iwr https://raw.githubusercontent.com/Kota-Ohno/repo-doctor/main/scripts/install
 repo-doctor check
 ```
 
+Try without creating files:
+
+```bash
+repo-doctor suggest
+repo-doctor init --print-config
+repo-doctor ci --template generic
+```
+
 GitHub Actions:
 
 ```yaml
 - uses: actions/checkout@v6
 - uses: Kota-Ohno/repo-doctor@v0.1.0
   with:
-    args: check --fail-on warn
+    fail-on: warn
 ```
 
 Docker:
@@ -106,8 +114,11 @@ repo-doctor github Kota-Ohno/repo-doctor --warnings-only
 repo-doctor github-setup Kota-Ohno/repo-doctor --topic rust --topic cli --homepage https://github.com/Kota-Ohno/repo-doctor --branch-protection
 repo-doctor baseline > repo-doctor-baseline.json
 repo-doctor batch repos.txt
+repo-doctor suggest
+repo-doctor ci --template node
 repo-doctor explain readme
 repo-doctor config-validate repo-doctor.toml
+repo-doctor init --print-config
 repo-doctor init --full --dry-run
 repo-doctor init --full --template node --yes
 repo-doctor version-check
@@ -170,6 +181,7 @@ It is separate from local `check` so local repository checks stay offline-first.
 For CI quality gates, combine a machine-readable output with an exit policy:
 
 ```bash
+repo-doctor ci --template generic > .github/workflows/repo-doctor.yml
 repo-doctor check --format github --fail-on warn
 repo-doctor check --format compact --min-score 90
 repo-doctor check --format junit > repo-doctor-junit.xml
@@ -179,6 +191,7 @@ repo-doctor check --format html > repo-doctor.html
 For config authoring:
 
 ```bash
+repo-doctor init --print-config
 repo-doctor list-profiles
 repo-doctor list-rules
 repo-doctor explain readme

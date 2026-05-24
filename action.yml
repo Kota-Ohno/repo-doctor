@@ -4,9 +4,27 @@ inputs:
   version:
     description: Release tag to install, or latest.
     default: latest
+  path:
+    description: Repository path to check.
+    default: .
+  profile:
+    description: Profile to run.
+    default: auto
+  format:
+    description: Output format.
+    default: github
+  fail-on:
+    description: Failure threshold. Set to warn to fail on warnings.
+    default: ""
+  config:
+    description: Optional repo-doctor.toml path.
+    default: ""
+  baseline:
+    description: Optional baseline JSON path.
+    default: ""
   args:
-    description: Arguments passed to repo-doctor.
-    default: check --fail-on warn
+    description: Override arguments passed to repo-doctor.
+    default: ""
 runs:
   using: composite
   steps:
@@ -47,4 +65,20 @@ runs:
         echo "${RUNNER_TEMP}/repo-doctor-bin" >> "${GITHUB_PATH}"
     - name: Run repo-doctor
       shell: bash
-      run: repo-doctor ${{ inputs.args }}
+      run: |
+        set -euo pipefail
+        if [ -n "${{ inputs.args }}" ]; then
+          repo-doctor ${{ inputs.args }}
+          exit $?
+        fi
+        args=(check "${{ inputs.path }}" --format "${{ inputs.format }}" --profile "${{ inputs.profile }}")
+        if [ -n "${{ inputs.fail-on }}" ]; then
+          args+=(--fail-on "${{ inputs.fail-on }}")
+        fi
+        if [ -n "${{ inputs.config }}" ]; then
+          args+=(--config "${{ inputs.config }}")
+        fi
+        if [ -n "${{ inputs.baseline }}" ]; then
+          args+=(--baseline "${{ inputs.baseline }}")
+        fi
+        repo-doctor "${args[@]}"

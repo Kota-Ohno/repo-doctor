@@ -79,6 +79,10 @@ pub enum Command {
         /// Support-file template to use with --full.
         #[arg(long, value_enum, default_value_t = InitTemplate::Generic)]
         template: InitTemplate,
+
+        /// Print starter repo-doctor.toml to stdout without writing files.
+        #[arg(long)]
+        print_config: bool,
     },
 
     /// Create a baseline JSON containing current warning rule IDs.
@@ -104,6 +108,24 @@ pub enum Command {
     ConfigValidate {
         /// Config file path.
         #[arg(default_value = "repo-doctor.toml")]
+        path: PathBuf,
+    },
+
+    /// Print a ready-to-paste GitHub Actions workflow.
+    Ci {
+        /// Workflow template to print.
+        #[arg(long, value_enum, default_value_t = InitTemplate::Generic)]
+        template: InitTemplate,
+
+        /// repo-doctor release tag used by the action.
+        #[arg(long, default_value = "v0.1.0")]
+        version: String,
+    },
+
+    /// Suggest the next adoption steps for a repository.
+    Suggest {
+        /// Repository directory to inspect.
+        #[arg(default_value = ".")]
         path: PathBuf,
     },
 
@@ -217,6 +239,7 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             dry_run,
             yes,
             template,
+            print_config,
         } => init_config_with_options(
             &path,
             InitOptions {
@@ -224,12 +247,15 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
                 dry_run,
                 yes,
                 template,
+                print_config,
             },
         ),
         Command::Baseline { path } => create_baseline(&path),
         Command::Batch { input } => batch_check(&input),
         Command::Explain { rule_id } => explain_rule(&rule_id),
         Command::ConfigValidate { path } => validate_config_file(&path),
+        Command::Ci { template, version } => ci_snippet(template, &version),
+        Command::Suggest { path } => suggest_next_steps(&path),
         Command::VersionCheck { repo } => version_check(&repo),
         Command::Github {
             repo,
@@ -375,6 +401,7 @@ pub struct InitOptions {
     pub dry_run: bool,
     pub yes: bool,
     pub template: InitTemplate,
+    pub print_config: bool,
 }
 
 pub fn init_config(path: &Path, full: bool) -> Result<RunOutput> {
@@ -385,11 +412,19 @@ pub fn init_config(path: &Path, full: bool) -> Result<RunOutput> {
             dry_run: false,
             yes: full,
             template: InitTemplate::Generic,
+            print_config: false,
         },
     )
 }
 
 pub fn init_config_with_options(path: &Path, options: InitOptions) -> Result<RunOutput> {
+    if options.print_config {
+        return Ok(RunOutput {
+            text: config::STARTER_CONFIG.trim_end().to_owned(),
+            exit_code: 0,
+        });
+    }
+
     validate_repository_path(path)?;
 
     if options.full && !options.dry_run && !options.yes {
@@ -443,7 +478,7 @@ pub fn init_config_with_options(path: &Path, options: InitOptions) -> Result<Run
 
 struct InitFile {
     path: PathBuf,
-    contents: &'static str,
+    contents: String,
 }
 
 fn planned_init_files(path: &Path, options: InitOptions) -> Vec<InitFile> {
@@ -452,7 +487,7 @@ fn planned_init_files(path: &Path, options: InitOptions) -> Vec<InitFile> {
     if !config_path.exists() {
         files.push(InitFile {
             path: config_path,
-            contents: config::STARTER_CONFIG,
+            contents: config::STARTER_CONFIG.to_owned(),
         });
     }
 
@@ -470,44 +505,44 @@ fn init_full_files(path: &Path, template: InitTemplate) -> Vec<InitFile> {
     let mut files = vec![
         InitFile {
             path: path.join(".editorconfig"),
-            contents: "root = true\n\n[*]\ncharset = utf-8\nend_of_line = lf\ninsert_final_newline = true\nindent_style = space\nindent_size = 2\n",
+            contents: "root = true\n\n[*]\ncharset = utf-8\nend_of_line = lf\ninsert_final_newline = true\nindent_style = space\nindent_size = 2\n".to_owned(),
         },
         InitFile {
             path: path.join(".gitattributes"),
-            contents: "* text=auto eol=lf\n",
+            contents: "* text=auto eol=lf\n".to_owned(),
         },
         InitFile {
             path: path.join(".env.example"),
-            contents: "# Copy to .env for local overrides.\n",
+            contents: "# Copy to .env for local overrides.\n".to_owned(),
         },
     ];
 
     let (dependabot, workflow) = match template {
         InitTemplate::Generic => (
             "version: 2\nupdates:\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
-            "name: Repository Readiness\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  repo-doctor:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          args: check --fail-on warn\n",
+            ci_workflow(InitTemplate::Generic, "v0.1.0"),
         ),
         InitTemplate::Rust => (
             "version: 2\nupdates:\n  - package-ecosystem: cargo\n    directory: /\n    schedule:\n      interval: weekly\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
-            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: dtolnay/rust-toolchain@stable\n        with:\n          components: clippy,rustfmt\n      - run: cargo fmt --all --check\n      - run: cargo clippy --all-targets --all-features -- -D warnings\n      - run: cargo test\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          args: check --fail-on warn\n",
+            ci_workflow(InitTemplate::Rust, "v0.1.0"),
         ),
         InitTemplate::Node => (
             "version: 2\nupdates:\n  - package-ecosystem: npm\n    directory: /\n    schedule:\n      interval: weekly\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
-            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-node@v6\n        with:\n          node-version: lts/*\n          cache: npm\n      - run: npm ci\n      - run: npm test --if-present\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          args: check --fail-on warn\n",
+            ci_workflow(InitTemplate::Node, "v0.1.0"),
         ),
         InitTemplate::Python => (
             "version: 2\nupdates:\n  - package-ecosystem: pip\n    directory: /\n    schedule:\n      interval: weekly\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
-            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-python@v6\n        with:\n          python-version: '3.x'\n      - run: python -m pip install -U pip\n      - run: python -m pytest\n        continue-on-error: true\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          args: check --fail-on warn\n",
+            ci_workflow(InitTemplate::Python, "v0.1.0"),
         ),
         InitTemplate::Go => (
             "version: 2\nupdates:\n  - package-ecosystem: gomod\n    directory: /\n    schedule:\n      interval: weekly\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
-            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-go@v6\n        with:\n          go-version: stable\n      - run: go test ./...\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          args: check --fail-on warn\n",
+            ci_workflow(InitTemplate::Go, "v0.1.0"),
         ),
     };
 
     files.push(InitFile {
         path: path.join(".github/dependabot.yml"),
-        contents: dependabot,
+        contents: dependabot.to_owned(),
     });
     files.push(InitFile {
         path: path.join(".github/workflows/repo-doctor.yml"),
@@ -515,6 +550,35 @@ fn init_full_files(path: &Path, template: InitTemplate) -> Vec<InitFile> {
     });
 
     files
+}
+
+pub fn ci_snippet(template: InitTemplate, version: &str) -> Result<RunOutput> {
+    Ok(RunOutput {
+        text: ci_workflow(template, version).trim_end().to_owned(),
+        exit_code: 0,
+    })
+}
+
+fn ci_workflow(template: InitTemplate, version: &str) -> String {
+    let workflow = match template {
+        InitTemplate::Generic => {
+            "name: Repository Readiness\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  repo-doctor:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Rust => {
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: dtolnay/rust-toolchain@stable\n        with:\n          components: clippy,rustfmt\n      - run: cargo fmt --all --check\n      - run: cargo clippy --all-targets --all-features -- -D warnings\n      - run: cargo test\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Node => {
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-node@v6\n        with:\n          node-version: lts/*\n          cache: npm\n      - run: npm ci\n      - run: npm test --if-present\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Python => {
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-python@v6\n        with:\n          python-version: '3.x'\n      - run: python -m pip install -U pip\n      - run: python -m pytest\n        continue-on-error: true\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Go => {
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-go@v6\n        with:\n          go-version: stable\n      - run: go test ./...\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          fail-on: warn\n"
+        }
+    };
+
+    workflow.replace("v0.1.0", version)
 }
 
 pub fn check_github_repository(repo: &str, format: OutputFormat) -> Result<RunOutput> {
@@ -589,6 +653,62 @@ pub fn validate_config_file(path: &Path) -> Result<RunOutput> {
             exit_code: 1,
         })
     }
+}
+
+pub fn suggest_next_steps(path: &Path) -> Result<RunOutput> {
+    validate_repository_path(path)?;
+    let config = config::load(path, None)?;
+    let report = inspect_repository_with_config(path, Profile::Auto, &config);
+    let warnings = report.warning_details();
+
+    if warnings.is_empty() {
+        return Ok(RunOutput {
+            text: [
+                "repo-doctor suggestion",
+                "Status: no warnings found.",
+                "Next steps:",
+                "1. Add repo-doctor to CI:",
+                "   repo-doctor ci --template generic > .github/workflows/repo-doctor.yml",
+                "2. Keep the quality gate strict:",
+                "   repo-doctor check --fail-on warn",
+            ]
+            .join("\n"),
+            exit_code: 0,
+        });
+    }
+
+    let mut lines = vec![
+        "repo-doctor suggestion".to_owned(),
+        format!("Status: {} warning(s) found.", warnings.len()),
+        "Next steps:".to_owned(),
+    ];
+
+    for (index, warning) in warnings.iter().take(8).enumerate() {
+        lines.push(format!(
+            "{}. {}: {}",
+            index + 1,
+            warning.id,
+            warning.message
+        ));
+        lines.push(format!("   {}", warning.remediation));
+    }
+
+    if warnings.len() > 8 {
+        lines.push(format!(
+            "... and {} more. Run `repo-doctor check --warnings-only` for the full list.",
+            warnings.len() - 8
+        ));
+    }
+
+    lines.push("Adopt gradually:".to_owned());
+    lines.push("  repo-doctor baseline > repo-doctor-baseline.json".to_owned());
+    lines
+        .push("  repo-doctor check --baseline repo-doctor-baseline.json --fail-on warn".to_owned());
+
+    Ok(RunOutput {
+        text: lines.join("\n"),
+        exit_code: 0,
+    })
 }
 
 pub fn version_check(repo: &str) -> Result<RunOutput> {
@@ -1510,6 +1630,7 @@ disabled = true
                 dry_run: true,
                 yes: false,
                 template: InitTemplate::Node,
+                print_config: false,
             },
         )
         .unwrap();
@@ -1529,6 +1650,7 @@ disabled = true
                 dry_run: false,
                 yes: true,
                 template: InitTemplate::Node,
+                print_config: false,
             },
         )
         .unwrap();
@@ -1536,6 +1658,46 @@ disabled = true
         let workflow =
             fs::read_to_string(temp_dir.path().join(".github/workflows/repo-doctor.yml")).unwrap();
         assert!(workflow.contains("actions/setup-node"));
+    }
+
+    #[test]
+    fn init_print_config_does_not_write_files() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output = init_config_with_options(
+            temp_dir.path(),
+            InitOptions {
+                full: false,
+                dry_run: false,
+                yes: false,
+                template: InitTemplate::Generic,
+                print_config: true,
+            },
+        )
+        .unwrap();
+
+        assert!(output.text.contains("profiles = [\"auto\"]"));
+        assert!(!temp_dir.path().join("repo-doctor.toml").exists());
+    }
+
+    #[test]
+    fn ci_snippet_uses_template_and_version() {
+        let output = ci_snippet(InitTemplate::Go, "v9.9.9").unwrap();
+
+        assert!(output.text.contains("actions/setup-go"));
+        assert!(output.text.contains("Kota-Ohno/repo-doctor@v9.9.9"));
+        assert!(output.text.contains("fail-on: warn"));
+    }
+
+    #[test]
+    fn suggest_lists_actionable_warnings() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output = suggest_next_steps(temp_dir.path()).unwrap();
+
+        assert!(output.text.contains("repo-doctor suggestion"));
+        assert!(output.text.contains("readme"));
+        assert!(output.text.contains("Adopt gradually"));
     }
 
     #[test]
