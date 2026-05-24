@@ -2,7 +2,11 @@
 
 This repository is checked with `repo-doctor github Kota-Ohno/repo-doctor`.
 
+このリポジトリは `repo-doctor github Kota-Ohno/repo-doctor` でremote GitHub settingsを確認しています。
+
 ## Applied
+
+適用済み:
 
 - Repository topics are set for discoverability.
 - Dependabot vulnerability alerts are enabled.
@@ -14,3 +18,5 @@ This repository is checked with `repo-doctor github Kota-Ohno/repo-doctor`.
 ## Branch Protection
 
 The default branch uses branch protection now that the repository is public.
+
+このリポジトリはpublicになっているため、default branchにはbranch protectionを設定しています。

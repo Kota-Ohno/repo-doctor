@@ -2,8 +2,12 @@
 
 A local-first CLI that checks repository readiness.
 
+リポジトリが公開・CI導入・継続運用に必要な基本要素を満たしているかを、ローカル優先で確認するCLIです。
+
 `repo-doctor` inspects a repository directory and reports whether basic project
 files and ecosystem-specific metadata are present. It currently checks for:
+
+`repo-doctor` はリポジトリディレクトリを検査し、基本ファイルとエコシステム固有メタデータが揃っているかを報告します。現在の主なチェック対象は次のとおりです。
 
 - `README.md`
 - a license file
@@ -25,10 +29,14 @@ By default, `check` runs core repository checks plus auto-detected ecosystem
 profiles. Use `--profile generic` for language-independent checks only, or
 select a profile explicitly.
 
+デフォルトの `check` は、言語非依存のcoreチェックと、自動検出されたエコシステムprofileチェックを実行します。言語非依存チェックだけを実行したい場合は `--profile generic`、特定profileを指定したい場合は `--profile rust` などを使います。
+
 ## Install
 
 `repo-doctor` is distributed as a standalone binary. You do not need a Rust
 toolchain to run it.
+
+`repo-doctor` は単体バイナリとして配布されます。利用するだけならRust toolchainは不要です。
 
 Linux and macOS:
 
@@ -45,6 +53,8 @@ repo-doctor check
 ```
 
 Try without creating files:
+
+ファイルを作らずに試す:
 
 ```bash
 repo-doctor suggest
@@ -70,7 +80,11 @@ docker run --rm -v "$PWD:/repo" repo-doctor check /repo
 
 More install paths are documented in [docs/installation.md](docs/installation.md).
 
+その他の導入方法は [docs/installation.md](docs/installation.md) にまとめています。
+
 ## Development Requirements
+
+開発に必要なもの:
 
 - Rust stable
 - `cargo-nextest`
@@ -78,6 +92,8 @@ More install paths are documented in [docs/installation.md](docs/installation.md
 - `cargo-deny`
 
 ## Commands
+
+主なコマンド:
 
 ```bash
 repo-doctor check
@@ -139,6 +155,8 @@ taplo fmt --check
 
 Generate shell completions or a man page:
 
+シェル補完やman pageも生成できます。
+
 ```bash
 repo-doctor init
 repo-doctor completions bash
@@ -149,6 +167,8 @@ repo-doctor man
 
 `repo-doctor.toml` is loaded from the checked repository root by default.
 Use `repo-doctor init` to create a starter config.
+
+`repo-doctor.toml` は、デフォルトではチェック対象リポジトリのrootから読み込まれます。スターター設定は `repo-doctor init` で作成できます。ファイルを書かずに内容だけ見たい場合は `repo-doctor init --print-config` を使います。
 
 ```toml
 profiles = ["auto"]
@@ -171,14 +191,20 @@ severity = "info"
 versions, but existing rule IDs and field meanings should remain stable within
 schema version 1. See [docs/report-contract.md](docs/report-contract.md).
 
+`--format json` は `schema_version: 1` を出力します。minor releaseでフィールドが追加されることはありますが、schema version 1 の範囲では既存rule IDと既存フィールドの意味を安定させます。詳細は [docs/report-contract.md](docs/report-contract.md) を参照してください。
+
 ## Remote GitHub Checks
 
 `repo-doctor github owner/repo` runs optional remote checks through the `gh` CLI.
 It is separate from local `check` so local repository checks stay offline-first.
 
+`repo-doctor github owner/repo` は `gh` CLI 経由で任意のremote GitHub checksを実行します。ローカルの `check` はoffline-firstのままにするため、remote checksは明示コマンドに分離しています。
+
 ## Usage Patterns
 
 For CI quality gates, combine a machine-readable output with an exit policy:
+
+CIのquality gateでは、機械可読な出力と終了コードポリシーを組み合わせます。
 
 ```bash
 repo-doctor ci --template generic > .github/workflows/repo-doctor.yml
@@ -189,6 +215,8 @@ repo-doctor check --format html > repo-doctor.html
 ```
 
 For config authoring:
+
+設定を書くとき:
 
 ```bash
 repo-doctor init --print-config
@@ -201,12 +229,16 @@ repo-doctor check --warnings-only
 
 For incremental adoption:
 
+既存リポジトリへ段階導入するとき:
+
 ```bash
 repo-doctor baseline > repo-doctor-baseline.json
 repo-doctor check --baseline repo-doctor-baseline.json --fail-on warn
 ```
 
 ## Layout
+
+リポジトリ構成:
 
 ```text
 AGENTS.md     coding-agent instructions with Karpathy-style guardrails

@@ -4,6 +4,8 @@ This roadmap is based on a quick comparison with GitHub Community Profile,
 TODO Group Repolinter, OpenSSF Scorecard, and SCM security posture tools such
 as Legitify.
 
+このroadmapは、GitHub Community Profile、TODO Group Repolinter、OpenSSF Scorecard、LegitifyのようなSCM security posture toolとの簡易比較をもとにしています。
+
 ## Positioning
 
 `repo-doctor` should stay a local-first generic repository readiness checker
@@ -11,7 +13,11 @@ with first-class ecosystem profiles. Rust remains a first-class profile, but it
 is no longer the whole product scope. The tool should complement broader tools
 instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 
+`repo-doctor` は、local-firstな汎用repository readiness checkerであり続けます。Rustはfirst-class profileですが、製品範囲はRust専用ではありません。OpenSSF Scorecardや完全なSCM security scannerの再実装ではなく、それらを補完する位置づけです。
+
 ## Product principles
+
+製品原則:
 
 - Keep `repo-doctor check <path>` useful offline.
 - Run language-independent core checks for every repository.
@@ -25,6 +31,8 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
   secret, or license analysis.
 
 ## Backlog
+
+Backlogは優先度別に整理しています。完了済み項目は `[x]` で示します。
 
 ### P0 - Tighten the local checker
 
@@ -168,6 +176,8 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - [x] Add OpenSSF Scorecard comparison or link-out mode.
 
 ## Out of scope for now
+
+現時点で対象外:
 
 - Full OpenSSF Scorecard reimplementation.
 - Custom secret scanning.
