@@ -204,6 +204,21 @@ pub fn known_rules() -> &'static [RuleInfo] {
             description: "Container build file is present",
         },
         RuleInfo {
+            id: "dockerignore",
+            severity: "warning",
+            description: ".dockerignore is present",
+        },
+        RuleInfo {
+            id: "docker_compose",
+            severity: "warning",
+            description: "Compose file is present when local multi-service development is expected",
+        },
+        RuleInfo {
+            id: "docker_base_image_pin",
+            severity: "warning",
+            description: "Container base image tags avoid :latest",
+        },
+        RuleInfo {
             id: "docker_healthcheck",
             severity: "warning",
             description: "Container HEALTHCHECK is configured",

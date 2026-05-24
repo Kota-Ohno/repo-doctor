@@ -67,6 +67,18 @@ pub enum Command {
         /// Also create common support files when they are missing.
         #[arg(long)]
         full: bool,
+
+        /// Show files that would be created without writing them.
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Explicitly acknowledge file creation for scripted full initialization.
+        #[arg(long)]
+        yes: bool,
+
+        /// Support-file template to use with --full.
+        #[arg(long, value_enum, default_value_t = InitTemplate::Generic)]
+        template: InitTemplate,
     },
 
     /// Create a baseline JSON containing current warning rule IDs.
@@ -93,6 +105,13 @@ pub enum Command {
         /// Config file path.
         #[arg(default_value = "repo-doctor.toml")]
         path: PathBuf,
+    },
+
+    /// Print the installed version and latest GitHub release when available.
+    VersionCheck {
+        /// GitHub repository in owner/name form.
+        #[arg(long, default_value = "Kota-Ohno/repo-doctor")]
+        repo: String,
     },
 
     /// Run remote GitHub repository checks using the gh CLI.
@@ -160,6 +179,15 @@ pub enum FailOn {
     Warn,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum InitTemplate {
+    Generic,
+    Rust,
+    Node,
+    Python,
+    Go,
+}
+
 pub fn run(cli: Cli) -> Result<RunOutput> {
     match cli.command {
         Command::Check {
@@ -183,11 +211,26 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
                 baseline: baseline.as_deref(),
             },
         ),
-        Command::Init { path, full } => init_config(&path, full),
+        Command::Init {
+            path,
+            full,
+            dry_run,
+            yes,
+            template,
+        } => init_config_with_options(
+            &path,
+            InitOptions {
+                full,
+                dry_run,
+                yes,
+                template,
+            },
+        ),
         Command::Baseline { path } => create_baseline(&path),
         Command::Batch { input } => batch_check(&input),
         Command::Explain { rule_id } => explain_rule(&rule_id),
         Command::ConfigValidate { path } => validate_config_file(&path),
+        Command::VersionCheck { repo } => version_check(&repo),
         Command::Github {
             repo,
             format,
@@ -326,22 +369,66 @@ fn inspect_repository_with_config(
     report::Report::new(path.to_path_buf(), selected_profiles, checks)
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct InitOptions {
+    pub full: bool,
+    pub dry_run: bool,
+    pub yes: bool,
+    pub template: InitTemplate,
+}
+
 pub fn init_config(path: &Path, full: bool) -> Result<RunOutput> {
+    init_config_with_options(
+        path,
+        InitOptions {
+            full,
+            dry_run: false,
+            yes: full,
+            template: InitTemplate::Generic,
+        },
+    )
+}
+
+pub fn init_config_with_options(path: &Path, options: InitOptions) -> Result<RunOutput> {
     validate_repository_path(path)?;
 
+    if options.full && !options.dry_run && !options.yes {
+        bail!(
+            "init --full writes support files; rerun with --dry-run to preview or --yes to create them"
+        );
+    }
+
     let config_path = path.join("repo-doctor.toml");
-    if config_path.exists() && !full {
+    if config_path.exists() && !options.full && !options.dry_run {
         bail!("config already exists: {}", config_path.display());
     }
 
-    let mut created = Vec::new();
-    if !config_path.exists() {
-        std::fs::write(&config_path, config::STARTER_CONFIG)?;
-        created.push(config_path.display().to_string());
+    let planned = planned_init_files(path, options);
+    if options.dry_run {
+        return Ok(RunOutput {
+            text: if planned.is_empty() {
+                "No files would be created; everything already exists".to_owned()
+            } else {
+                format!(
+                    "Would create:\n{}",
+                    planned
+                        .iter()
+                        .map(|file| file.path.display().to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                )
+            },
+            exit_code: 0,
+        });
     }
 
-    if full {
-        created.extend(init_full(path)?);
+    let mut created = Vec::new();
+    for file in planned {
+        if let Some(parent) = file.path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&file.path, file.contents)?;
+        created.push(file.path.display().to_string());
     }
 
     Ok(RunOutput {
@@ -354,38 +441,80 @@ pub fn init_config(path: &Path, full: bool) -> Result<RunOutput> {
     })
 }
 
-fn init_full(path: &Path) -> Result<Vec<String>> {
-    let files = [
-        (
-            ".editorconfig",
-            "root = true\n\n[*]\ncharset = utf-8\nend_of_line = lf\ninsert_final_newline = true\nindent_style = space\nindent_size = 4\n",
-        ),
-        (".gitattributes", "* text=auto eol=lf\n"),
-        (".env.example", "RUST_LOG=info\n"),
-        (
-            ".github/dependabot.yml",
-            "version: 2\nupdates:\n  - package-ecosystem: cargo\n    directory: /\n    schedule:\n      interval: weekly\n",
-        ),
-        (
-            ".github/workflows/ci.yml",
-            "name: CI\non:\n  push:\n  pull_request:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: dtolnay/rust-toolchain@stable\n      - run: cargo fmt --all --check\n      - run: cargo clippy --all-targets --all-features -- -D warnings\n      - run: cargo test\n",
-        ),
-    ];
-    let mut created = Vec::new();
+struct InitFile {
+    path: PathBuf,
+    contents: &'static str,
+}
 
-    for (relative, contents) in files {
-        let target = path.join(relative);
-        if target.exists() {
-            continue;
-        }
-        if let Some(parent) = target.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::write(&target, contents)?;
-        created.push(target.display().to_string());
+fn planned_init_files(path: &Path, options: InitOptions) -> Vec<InitFile> {
+    let mut files = Vec::new();
+    let config_path = path.join("repo-doctor.toml");
+    if !config_path.exists() {
+        files.push(InitFile {
+            path: config_path,
+            contents: config::STARTER_CONFIG,
+        });
     }
 
-    Ok(created)
+    if options.full {
+        files.extend(init_full_files(path, options.template));
+    }
+
+    files
+        .into_iter()
+        .filter(|file| !file.path.exists())
+        .collect()
+}
+
+fn init_full_files(path: &Path, template: InitTemplate) -> Vec<InitFile> {
+    let mut files = vec![
+        InitFile {
+            path: path.join(".editorconfig"),
+            contents: "root = true\n\n[*]\ncharset = utf-8\nend_of_line = lf\ninsert_final_newline = true\nindent_style = space\nindent_size = 2\n",
+        },
+        InitFile {
+            path: path.join(".gitattributes"),
+            contents: "* text=auto eol=lf\n",
+        },
+        InitFile {
+            path: path.join(".env.example"),
+            contents: "# Copy to .env for local overrides.\n",
+        },
+    ];
+
+    let (dependabot, workflow) = match template {
+        InitTemplate::Generic => (
+            "version: 2\nupdates:\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
+            "name: Repository Readiness\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  repo-doctor:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          args: check --fail-on warn\n",
+        ),
+        InitTemplate::Rust => (
+            "version: 2\nupdates:\n  - package-ecosystem: cargo\n    directory: /\n    schedule:\n      interval: weekly\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: dtolnay/rust-toolchain@stable\n        with:\n          components: clippy,rustfmt\n      - run: cargo fmt --all --check\n      - run: cargo clippy --all-targets --all-features -- -D warnings\n      - run: cargo test\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          args: check --fail-on warn\n",
+        ),
+        InitTemplate::Node => (
+            "version: 2\nupdates:\n  - package-ecosystem: npm\n    directory: /\n    schedule:\n      interval: weekly\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-node@v6\n        with:\n          node-version: lts/*\n          cache: npm\n      - run: npm ci\n      - run: npm test --if-present\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          args: check --fail-on warn\n",
+        ),
+        InitTemplate::Python => (
+            "version: 2\nupdates:\n  - package-ecosystem: pip\n    directory: /\n    schedule:\n      interval: weekly\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-python@v6\n        with:\n          python-version: '3.x'\n      - run: python -m pip install -U pip\n      - run: python -m pytest\n        continue-on-error: true\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          args: check --fail-on warn\n",
+        ),
+        InitTemplate::Go => (
+            "version: 2\nupdates:\n  - package-ecosystem: gomod\n    directory: /\n    schedule:\n      interval: weekly\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-go@v6\n        with:\n          go-version: stable\n      - run: go test ./...\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          args: check --fail-on warn\n",
+        ),
+    };
+
+    files.push(InitFile {
+        path: path.join(".github/dependabot.yml"),
+        contents: dependabot,
+    });
+    files.push(InitFile {
+        path: path.join(".github/workflows/repo-doctor.yml"),
+        contents: workflow,
+    });
+
+    files
 }
 
 pub fn check_github_repository(repo: &str, format: OutputFormat) -> Result<RunOutput> {
@@ -460,6 +589,37 @@ pub fn validate_config_file(path: &Path) -> Result<RunOutput> {
             exit_code: 1,
         })
     }
+}
+
+pub fn version_check(repo: &str) -> Result<RunOutput> {
+    let current = env!("CARGO_PKG_VERSION");
+    let latest = latest_release_tag(repo).unwrap_or_else(|error| format!("unavailable ({error})"));
+
+    Ok(RunOutput {
+        text: format!("repo-doctor current={current} latest={latest}"),
+        exit_code: 0,
+    })
+}
+
+fn latest_release_tag(repo: &str) -> Result<String> {
+    let output = std::process::Command::new("gh")
+        .args([
+            "api",
+            &format!("repos/{repo}/releases/latest"),
+            "--jq",
+            ".tag_name",
+        ])
+        .output()
+        .context("failed to execute gh CLI")?;
+
+    if !output.status.success() {
+        bail!(
+            "gh command failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
 }
 
 pub fn create_baseline(path: &Path) -> Result<RunOutput> {
@@ -1331,7 +1491,58 @@ disabled = true
         let output = init_config(temp_dir.path(), true).unwrap();
 
         assert!(output.text.contains(".editorconfig"));
-        assert!(temp_dir.path().join(".github/workflows/ci.yml").exists());
+        assert!(
+            temp_dir
+                .path()
+                .join(".github/workflows/repo-doctor.yml")
+                .exists()
+        );
+    }
+
+    #[test]
+    fn init_dry_run_does_not_write_files() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output = init_config_with_options(
+            temp_dir.path(),
+            InitOptions {
+                full: true,
+                dry_run: true,
+                yes: false,
+                template: InitTemplate::Node,
+            },
+        )
+        .unwrap();
+
+        assert!(output.text.contains("Would create:"));
+        assert!(!temp_dir.path().join("repo-doctor.toml").exists());
+    }
+
+    #[test]
+    fn init_template_selects_ecosystem_workflow() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        init_config_with_options(
+            temp_dir.path(),
+            InitOptions {
+                full: true,
+                dry_run: false,
+                yes: true,
+                template: InitTemplate::Node,
+            },
+        )
+        .unwrap();
+
+        let workflow =
+            fs::read_to_string(temp_dir.path().join(".github/workflows/repo-doctor.yml")).unwrap();
+        assert!(workflow.contains("actions/setup-node"));
+    }
+
+    #[test]
+    fn version_check_prints_current_version() {
+        let output = version_check("invalid/repo").unwrap();
+
+        assert!(output.text.contains("repo-doctor current="));
     }
 
     #[test]

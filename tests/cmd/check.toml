@@ -2,8 +2,8 @@ bin.name = "repo-doctor"
 args = "check"
 stdout = """
 Repository: .
-Profiles: rust
-Summary: 38 passed, 0 warnings, score 100
+Profiles: rust, docker
+Summary: 42 passed, 0 warnings, score 100
 [PASS] readme: README is present
 [PASS] license: License file is present
 [PASS] gitignore: .gitignore is present
@@ -42,4 +42,8 @@ Summary: 38 passed, 0 warnings, score 100
 [PASS] rust_readme_commands: README documents Rust usage and test commands
 [PASS] rust_toolchain: Rust toolchain pin is present
 [PASS] rust_tooling_config: Rust rustfmt and clippy configs are present
+[PASS] docker_build_file: Container build file is present
+[PASS] dockerignore: .dockerignore is present
+[PASS] docker_base_image_pin: Container base image tags avoid :latest
+[PASS] docker_non_root_user: Container switches to a configured USER
 """

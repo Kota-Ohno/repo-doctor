@@ -5,12 +5,13 @@ stdout = """
   "schema_version": 1,
   "path": ".",
   "selected_profiles": [
-    "rust"
+    "rust",
+    "docker"
   ],
   "summary": {
-    "pass": 38,
+    "pass": 42,
     "warn": 0,
-    "total": 38,
+    "total": 42,
     "score": 100
   },
   "checks": [
@@ -279,6 +280,34 @@ stdout = """
       "status": "pass",
       "severity": "info",
       "message": "Rust rustfmt and clippy configs are present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "docker_build_file",
+      "status": "pass",
+      "severity": "info",
+      "message": "Container build file is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "dockerignore",
+      "status": "pass",
+      "severity": "info",
+      "message": ".dockerignore is present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "docker_base_image_pin",
+      "status": "pass",
+      "severity": "info",
+      "message": "Container base image tags avoid :latest",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "docker_non_root_user",
+      "status": "pass",
+      "severity": "info",
+      "message": "Container switches to a configured USER",
       "remediation": "No action needed."
     }
   ]

@@ -1,0 +1,54 @@
+#!/usr/bin/env sh
+set -eu
+
+repo="Kota-Ohno/repo-doctor"
+version="${REPO_DOCTOR_VERSION:-latest}"
+bin_dir="${REPO_DOCTOR_INSTALL_DIR:-$HOME/.local/bin}"
+
+os="$(uname -s)"
+arch="$(uname -m)"
+
+case "$os" in
+  Linux) os_target="unknown-linux-gnu" ;;
+  Darwin) os_target="apple-darwin" ;;
+  *) echo "unsupported OS: $os" >&2; exit 1 ;;
+esac
+
+case "$arch" in
+  x86_64|amd64) arch_target="x86_64" ;;
+  arm64|aarch64) arch_target="aarch64" ;;
+  *) echo "unsupported architecture: $arch" >&2; exit 1 ;;
+esac
+
+target="${arch_target}-${os_target}"
+if [ "$target" = "aarch64-unknown-linux-gnu" ]; then
+  echo "unsupported release target: $target" >&2
+  exit 1
+fi
+
+if [ "$version" = "latest" ]; then
+  base="https://github.com/$repo/releases/latest/download"
+else
+  base="https://github.com/$repo/releases/download/$version"
+fi
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+mkdir -p "$bin_dir"
+curl -fsSL "$base/repo-doctor-$target.tar.gz" -o "$tmp/repo-doctor.tar.gz"
+curl -fsSL "$base/repo-doctor-$target.tar.gz.sha256" -o "$tmp/repo-doctor.tar.gz.sha256"
+if command -v sha256sum >/dev/null 2>&1; then
+  (cd "$tmp" && sha256sum -c repo-doctor.tar.gz.sha256)
+else
+  expected="$(awk '{print $1}' "$tmp/repo-doctor.tar.gz.sha256")"
+  actual="$(shasum -a 256 "$tmp/repo-doctor.tar.gz" | awk '{print $1}')"
+  if [ "$expected" != "$actual" ]; then
+    echo "checksum mismatch: expected $expected, got $actual" >&2
+    exit 1
+  fi
+fi
+tar -xzf "$tmp/repo-doctor.tar.gz" -C "$tmp"
+install -m 0755 "$tmp/repo-doctor" "$bin_dir/repo-doctor"
+
+echo "Installed repo-doctor to $bin_dir/repo-doctor"

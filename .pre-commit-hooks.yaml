@@ -1,0 +1,6 @@
+- id: repo-doctor
+  name: repo-doctor
+  description: Check repository readiness.
+  entry: repo-doctor check --fail-on warn
+  language: system
+  pass_filenames: false

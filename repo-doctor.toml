@@ -1,0 +1,11 @@
+profiles = [ "auto" ]
+
+[[rules]]
+id = "docker_compose"
+disabled = true
+reason = "repo-doctor is a single-binary CLI image, not a multi-service development stack."
+
+[[rules]]
+id = "docker_healthcheck"
+disabled = true
+reason = "The Docker image runs a short-lived CLI command, so a long-running service healthcheck does not apply."

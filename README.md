@@ -25,7 +25,44 @@ By default, `check` runs core repository checks plus auto-detected ecosystem
 profiles. Use `--profile generic` for language-independent checks only, or
 select a profile explicitly.
 
-## Requirements
+## Install
+
+`repo-doctor` is distributed as a standalone binary. You do not need a Rust
+toolchain to run it.
+
+Linux and macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Kota-Ohno/repo-doctor/main/scripts/install.sh | sh
+repo-doctor check
+```
+
+Windows PowerShell:
+
+```powershell
+iwr https://raw.githubusercontent.com/Kota-Ohno/repo-doctor/main/scripts/install.ps1 -UseB | iex
+repo-doctor check
+```
+
+GitHub Actions:
+
+```yaml
+- uses: actions/checkout@v6
+- uses: Kota-Ohno/repo-doctor@v0.1.0
+  with:
+    args: check --fail-on warn
+```
+
+Docker:
+
+```bash
+docker build -t repo-doctor .
+docker run --rm -v "$PWD:/repo" repo-doctor check /repo
+```
+
+More install paths are documented in [docs/installation.md](docs/installation.md).
+
+## Development Requirements
 
 - Rust stable
 - `cargo-nextest`
@@ -35,45 +72,47 @@ select a profile explicitly.
 ## Commands
 
 ```bash
-cargo run -- check
-cargo run -- check /path/to/repo
-cargo run -- check --format json
-cargo run -- check --format markdown
-cargo run -- check --format github
-cargo run -- check --format sarif
-cargo run -- check --format compact
-cargo run -- check --format junit
-cargo run -- check --format html
-cargo run -- check --config repo-doctor.toml
-cargo run -- check --baseline repo-doctor-baseline.json
-cargo run -- check --warnings-only
-cargo run -- check --min-score 90
-cargo run -- check --profile generic
-cargo run -- check --profile rust
-cargo run -- check --profile node
-cargo run -- check --profile python
-cargo run -- check --profile go
-cargo run -- check --profile docker
-cargo run -- check --profile jvm
-cargo run -- check --profile deno
-cargo run -- check --profile bun
-cargo run -- check --profile dotnet
-cargo run -- check --profile php
-cargo run -- check --profile ruby
-cargo run -- check --profile cpp
-cargo run -- check --profile swift
-cargo run -- check --profile kotlin
-cargo run -- check --fail-on warn
-cargo run -- github Kota-Ohno/repo-doctor
-cargo run -- github Kota-Ohno/repo-doctor --warnings-only
-cargo run -- github-setup Kota-Ohno/repo-doctor --topic rust --topic cli --homepage https://github.com/Kota-Ohno/repo-doctor --branch-protection
-cargo run -- baseline > repo-doctor-baseline.json
-cargo run -- batch repos.txt
-cargo run -- explain readme
-cargo run -- config-validate repo-doctor.toml
-cargo run -- init --full
-cargo run -- list-profiles
-cargo run -- list-rules
+repo-doctor check
+repo-doctor check /path/to/repo
+repo-doctor check --format json
+repo-doctor check --format markdown
+repo-doctor check --format github
+repo-doctor check --format sarif
+repo-doctor check --format compact
+repo-doctor check --format junit
+repo-doctor check --format html
+repo-doctor check --config repo-doctor.toml
+repo-doctor check --baseline repo-doctor-baseline.json
+repo-doctor check --warnings-only
+repo-doctor check --min-score 90
+repo-doctor check --profile generic
+repo-doctor check --profile rust
+repo-doctor check --profile node
+repo-doctor check --profile python
+repo-doctor check --profile go
+repo-doctor check --profile docker
+repo-doctor check --profile jvm
+repo-doctor check --profile deno
+repo-doctor check --profile bun
+repo-doctor check --profile dotnet
+repo-doctor check --profile php
+repo-doctor check --profile ruby
+repo-doctor check --profile cpp
+repo-doctor check --profile swift
+repo-doctor check --profile kotlin
+repo-doctor check --fail-on warn
+repo-doctor github Kota-Ohno/repo-doctor
+repo-doctor github Kota-Ohno/repo-doctor --warnings-only
+repo-doctor github-setup Kota-Ohno/repo-doctor --topic rust --topic cli --homepage https://github.com/Kota-Ohno/repo-doctor --branch-protection
+repo-doctor baseline > repo-doctor-baseline.json
+repo-doctor batch repos.txt
+repo-doctor explain readme
+repo-doctor config-validate repo-doctor.toml
+repo-doctor init --full --dry-run
+repo-doctor init --full --template node --yes
+repo-doctor version-check
+repo-doctor list-profiles
+repo-doctor list-rules
 cargo test
 cargo clippy --all-targets --all-features -- -D warnings
 cargo c
@@ -90,9 +129,9 @@ taplo fmt --check
 Generate shell completions or a man page:
 
 ```bash
-cargo run -- init
-cargo run -- completions bash
-cargo run -- man
+repo-doctor init
+repo-doctor completions bash
+repo-doctor man
 ```
 
 ## Configuration
