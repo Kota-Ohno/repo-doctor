@@ -1,5 +1,8 @@
 name: repo-doctor
 description: Run repository readiness and VibeCoding guardrail checks without installing Rust.
+branding:
+  icon: activity
+  color: blue
 inputs:
   version:
     description: Release tag to install, or latest.

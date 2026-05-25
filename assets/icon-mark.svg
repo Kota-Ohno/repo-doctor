@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">repo-doctor mark</title>
+  <desc id="desc">A compact repository health check mark.</desc>
+  <rect width="128" height="128" rx="28" fill="#0f172a"/>
+  <path fill="#2dd4bf" d="M22 39c0-7 6-13 13-13h23c5 0 9 2 12 6l5 7h22c7 0 13 6 13 13v38c0 7-6 13-13 13H35c-7 0-13-6-13-13V39Z"/>
+  <circle cx="83" cy="77" r="26" fill="#f8fafc"/>
+  <path fill="none" stroke="#2563eb" stroke-linecap="round" stroke-linejoin="round" stroke-width="10" d="m44 74 15 15 31-36"/>
+</svg>

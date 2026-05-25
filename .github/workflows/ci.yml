@@ -27,6 +27,7 @@ jobs:
       - run: cargo test --doc
       - run: taplo fmt --check
       - run: sh -n scripts/install.sh
+      - run: bash -n scripts/release-preflight.sh
       - name: Smoke test install.sh with local release assets
         shell: bash
         run: |
@@ -55,6 +56,7 @@ jobs:
       - run: ruby -e 'require "yaml"; YAML.load_file("action.yml")'
       - run: cargo run -- ci --template generic > /tmp/repo-doctor.yml
       - run: ruby -e 'require "yaml"; YAML.load_file("/tmp/repo-doctor.yml")'
+      - run: cargo run -- guard --format compact
 
   audit:
     name: Audit

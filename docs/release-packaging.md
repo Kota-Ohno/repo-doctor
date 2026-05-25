@@ -4,6 +4,10 @@ Release assets are produced by `.github/workflows/release.yml`.
 
 release assetは `.github/workflows/release.yml` で生成されます。
 
+For version, tag, and preflight policy, see [docs/release.md](release.md).
+
+version、tag、preflight方針は [docs/release.md](release.md) を参照してください。
+
 After a release:
 
 release後に確認すること:

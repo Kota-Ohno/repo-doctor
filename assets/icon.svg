@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">repo-doctor icon</title>
+  <desc id="desc">A repository folder with a medical cross and check mark.</desc>
+  <defs>
+    <linearGradient id="folder" x1="96" x2="416" y1="116" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2dd4bf"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="badge" x1="256" x2="424" y1="208" y2="392" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#dbeafe"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+  <path fill="url(#folder)" d="M82 158c0-22 18-40 40-40h94c13 0 25 6 32 17l18 27h124c22 0 40 18 40 40v166c0 22-18 40-40 40H122c-22 0-40-18-40-40V158Z"/>
+  <path fill="#bfdbfe" d="M82 218h348v150c0 22-18 40-40 40H122c-22 0-40-18-40-40V218Z" opacity=".22"/>
+  <circle cx="330" cy="302" r="94" fill="url(#badge)" stroke="#0f172a" stroke-width="14"/>
+  <path fill="#2563eb" d="M312 244h36v40h40v36h-40v40h-36v-40h-40v-36h40v-40Z"/>
+  <path fill="none" stroke="#14b8a6" stroke-linecap="round" stroke-linejoin="round" stroke-width="28" d="m176 300 42 42 86-98"/>
+</svg>

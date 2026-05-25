@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/icon.svg" alt="repo-doctor" width="120" height="120">
+</p>
+
 # repo-doctor
 
 A local-first CLI that checks repository readiness.
@@ -290,6 +294,7 @@ More examples:
 
 - [docs/ai.md](docs/ai.md)
 - [docs/examples.md](docs/examples.md)
+- [docs/release.md](docs/release.md)
 - [docs/troubleshooting.md](docs/troubleshooting.md)
 - [docs/rules.md](docs/rules.md)
 - [docs/release-packaging.md](docs/release-packaging.md)

@@ -49,25 +49,30 @@ function download(url, dest) {
 async function main() {
   fs.mkdirSync(vendor, { recursive: true });
   const triple = target();
-  const isWindows = os.platform() === "win32";
-  const ext = isWindows ? "zip" : "tar.gz";
+  const isWindowsTarget = triple.endsWith("pc-windows-msvc");
+  const ext = isWindowsTarget ? "zip" : "tar.gz";
   const base = process.env.REPO_DOCTOR_BASE_URL || (version === "latest"
     ? "https://github.com/Kota-Ohno/repo-doctor/releases/latest/download"
     : `https://github.com/Kota-Ohno/repo-doctor/releases/download/${version}`);
-  const archive = path.join(os.tmpdir(), `repo-doctor-${triple}.${ext}`);
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "repo-doctor-"));
+  const archive = path.join(temp, `repo-doctor-${triple}.${ext}`);
   const checksum = `${archive}.sha256`;
 
-  await download(`${base}/repo-doctor-${triple}.${ext}`, archive);
-  await download(`${base}/repo-doctor-${triple}.${ext}.sha256`, checksum);
-  const expected = fs.readFileSync(checksum, "utf8").trim().split(/\s+/)[0].toLowerCase();
-  const actual = createHash("sha256").update(fs.readFileSync(archive)).digest("hex");
-  if (expected !== actual) throw new Error(`checksum mismatch: expected ${expected}, got ${actual}`);
+  try {
+    await download(`${base}/repo-doctor-${triple}.${ext}`, archive);
+    await download(`${base}/repo-doctor-${triple}.${ext}.sha256`, checksum);
+    const expected = fs.readFileSync(checksum, "utf8").trim().split(/\s+/)[0].toLowerCase();
+    const actual = createHash("sha256").update(fs.readFileSync(archive)).digest("hex");
+    if (expected !== actual) throw new Error(`checksum mismatch: expected ${expected}, got ${actual}`);
 
-  if (isWindows) {
-    execFileSync("powershell", ["-NoProfile", "-Command", `Expand-Archive -Force '${archive}' '${vendor}'`], { stdio: "inherit" });
-  } else {
-    execFileSync("tar", ["-xzf", archive, "-C", vendor], { stdio: "inherit" });
-    fs.chmodSync(path.join(vendor, "repo-doctor"), 0o755);
+    if (isWindowsTarget) {
+      execFileSync("powershell", ["-NoProfile", "-Command", `Expand-Archive -Force '${archive}' '${vendor}'`], { stdio: "inherit" });
+    } else {
+      execFileSync("tar", ["-xzf", archive, "-C", vendor], { stdio: "inherit" });
+      fs.chmodSync(path.join(vendor, "repo-doctor"), 0o755);
+    }
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
   }
 }
 
