@@ -1,16 +1,12 @@
-# AI Usage Specification / AI向け利用仕様
+# AI Usage Specification
 
 `repo-doctor` is designed to be operated by coding agents as well as humans.
 Agents should prefer machine-readable commands first, then use markdown docs as
 fallback context.
 
-`repo-doctor` は人間だけでなくcoding agentが操作する前提で設計します。agentはまず機械可読なコマンドを優先し、必要に応じてMarkdown docsを補助情報として使います。
-
-## Discovery / 発見
+## Discovery
 
 Use these commands before deciding how to operate the repository:
-
-リポジトリへの操作方針を決める前に、次のコマンドで能力と手順を発見します。
 
 ```bash
 repo-doctor spec --format json
@@ -23,15 +19,11 @@ repo-doctor config-explain
 `spec --format json` is the primary machine-readable contract for agents. It
 lists commands, supported profiles, rule IDs, output contracts, and recipes.
 
-`spec --format json` はagent向けの主要な機械可読contractです。commands、supported profiles、rule IDs、output contracts、recipesを列挙します。
-
-## Environment Preflight / 環境Preflight
+## Environment Preflight
 
 Agents should distinguish local checks from remote GitHub operations. Local
 checks need only `repo-doctor` and repository read access. Remote checks need
 `gh` and authentication. Remote setup changes may need repository admin access.
-
-agentは、local checksとremote GitHub operationsを分けて扱います。local checksに必要なのは `repo-doctor` とrepository read accessだけです。remote checksには `gh` と認証が必要です。remote setup変更にはrepository admin権限が必要な場合があります。
 
 ```bash
 repo-doctor --version
@@ -42,20 +34,14 @@ If `github-auth-doctor` reports missing `gh`, failed authentication, or
 unavailable API access, report that as the blocker before attempting remote
 checks or setup.
 
-`github-auth-doctor` が `gh` 不在、認証失敗、API access unavailableを返す場合は、remote checksやsetupを試す前に、それをblockerとして報告します。
-
-## Skill Usage / Skillとしての利用
+## Skill Usage
 
 This repository ships a Codex-compatible skill at
 `skills/repo-doctor/SKILL.md`. Agents that support local skills should load that
 skill when the user asks about repository readiness, VibeCoding guardrails,
 AI-safe repository changes, or repo-doctor adoption.
 
-このリポジトリにはCodex互換のskillとして `skills/repo-doctor/SKILL.md` を同梱しています。local skillを扱えるagentは、repository readiness、VibeCoding guardrails、AI-safeなリポジトリ変更、repo-doctor導入について依頼されたときにこのskillを読み込みます。
-
 Recommended skill workflow:
-
-推奨skill workflow:
 
 ```bash
 repo-doctor spec --format json
@@ -67,13 +53,11 @@ repo-doctor guard --fail-on warn
 
 The skill's completion gate is the same as the general AI loop:
 
-skillの完了条件は通常のAI loopと同じです。
-
 ```bash
 repo-doctor guard --fail-on warn
 ```
 
-## Standard Agent Loop / 標準Agent Loop
+## Standard Agent Loop
 
 ```bash
 repo-doctor check --format summary
@@ -85,9 +69,7 @@ repo-doctor guard --fail-on warn
 Use `check` to understand repository readiness. Use `guard` before finishing a
 coding task because it includes diff-aware checks for AI-generated changes.
 
-`check` はrepository readinessの把握に使います。coding taskを完了する前には、AI生成差分向けの検査を含む `guard` を使います。
-
-## AGENTS.md Generation / AGENTS.md生成
+## AGENTS.md Generation
 
 ```bash
 repo-doctor agent-guide --format markdown >> AGENTS.md
@@ -97,9 +79,7 @@ repo-doctor guard --warnings-only
 `agent-guide` detects repository profiles and emits verification commands and
 behavior constraints suitable for `AGENTS.md`.
 
-`agent-guide` はrepository profileを検出し、`AGENTS.md` に貼れる検証コマンドと行動制約を出力します。
-
-## CI / CI導入
+## CI
 
 ```bash
 repo-doctor ci --template generic > .github/workflows/repo-doctor.yml
@@ -109,14 +89,10 @@ repo-doctor ci --guard > .github/workflows/repo-doctor-guard.yml
 The readiness workflow checks repository hygiene. The guard workflow checks
 AI/VibeCoding risks in Git diffs.
 
-readiness workflowはrepository hygieneを確認します。guard workflowはGit差分内のAI/VibeCodingリスクを確認します。
-
-## Completion Criteria / 完了条件
+## Completion Criteria
 
 An agent should not consider repository-changing work complete until this
 command succeeds or every warning has a documented rationale:
-
-agentは、次のコマンドが成功するか、すべてのwarningに明示的な理由が付くまで、リポジトリ変更作業を完了扱いにしないでください。
 
 ```bash
 repo-doctor guard --fail-on warn
