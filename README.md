@@ -140,6 +140,9 @@ repo-doctor github-setup Kota-Ohno/repo-doctor --topic rust --topic cli --homepa
 repo-doctor baseline > repo-doctor-baseline.json
 repo-doctor batch repos.txt
 repo-doctor suggest
+repo-doctor spec --format json
+repo-doctor recipes --format markdown
+repo-doctor agent-guide --format markdown
 repo-doctor ci --template node
 repo-doctor ci --guard
 repo-doctor explain readme
@@ -272,6 +275,7 @@ More examples:
 
 その他の例:
 
+- [docs/ai.md](docs/ai.md)
 - [docs/examples.md](docs/examples.md)
 - [docs/troubleshooting.md](docs/troubleshooting.md)
 - [docs/rules.md](docs/rules.md)

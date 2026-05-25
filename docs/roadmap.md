@@ -189,6 +189,13 @@ Backlogは優先度別に整理しています。完了済み項目は `[x]` で
 - [x] Generate a guardrail GitHub Actions workflow with `repo-doctor ci
       --guard`.
 
+### P1 - AI-first operation
+
+- [x] Add `repo-doctor spec` for machine-readable product capabilities.
+- [x] Add `repo-doctor recipes` for agent task workflows.
+- [x] Add `repo-doctor agent-guide` for `AGENTS.md` guidance generation.
+- [x] Document the standard AI operation loop bilingually.
+
 ### P3 - Remote GitHub checks
 
 - [x] Add an explicit `repo-doctor github owner/repo` command.

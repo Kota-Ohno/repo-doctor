@@ -24,3 +24,20 @@ schema version 1 の範囲では、次の互換性を維持します。
 total checks. Disabled rules are removed before summary calculation.
 
 `summary.score` は、passしたcheck数をtotal check数で割った整数percentです。disabled ruleはsummary計算前に除外されます。
+
+## AI Discovery Outputs
+
+AI向け発見用出力:
+
+- `repo-doctor spec --format json` emits a machine-readable product capability
+  document with `schema_version: 1`.
+- `repo-doctor recipes --format json` emits task recipes with
+  `schema_version: 1`.
+- `repo-doctor agent-guide --format json` emits detected-profile guidance with
+  `schema_version: 1`.
+
+These outputs may add fields in minor releases. Existing top-level
+`schema_version` and documented command meanings should remain stable within
+version 1.
+
+これらの出力はminor releaseでフィールドが追加されることがあります。schema version 1 の範囲では、既存のtop-level `schema_version` とdocumented command meaningsを安定させます。

@@ -15,6 +15,9 @@ repo-doctor check --fail-on warn
 ## VibeCoding Guardrails / VibeCodingガードレール
 
 ```bash
+repo-doctor spec --format json
+repo-doctor recipes --format markdown
+repo-doctor agent-guide --format markdown
 repo-doctor guard --fail-on warn
 repo-doctor guard --base origin/main --format github --fail-on warn
 repo-doctor ci --guard > .github/workflows/repo-doctor-guard.yml

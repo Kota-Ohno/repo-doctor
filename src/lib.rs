@@ -4,6 +4,7 @@ use anyhow::{Context, Result, bail};
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 
+mod ai;
 mod checks;
 mod config;
 mod core;
@@ -192,6 +193,35 @@ pub enum Command {
         path: PathBuf,
     },
 
+    /// Print an AI-readable product and automation specification.
+    Spec {
+        /// Output format.
+        #[arg(short, long, value_enum, default_value_t = AiDocFormat::Json)]
+        format: AiDocFormat,
+    },
+
+    /// Print AI-readable task recipes for common workflows.
+    Recipes {
+        /// Output format.
+        #[arg(short, long, value_enum, default_value_t = AiDocFormat::Markdown)]
+        format: AiDocFormat,
+    },
+
+    /// Generate AGENTS.md guidance for the detected repository profiles.
+    AgentGuide {
+        /// Repository directory to inspect.
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Output format.
+        #[arg(short, long, value_enum, default_value_t = AiDocFormat::Markdown)]
+        format: AiDocFormat,
+
+        /// Profile to use for guidance.
+        #[arg(long, value_enum, default_value_t = Profile::Auto)]
+        profile: Profile,
+    },
+
     /// Print the installed version and latest GitHub release when available.
     VersionCheck {
         /// GitHub repository in owner/name form.
@@ -287,6 +317,13 @@ pub enum InitTemplate {
     Go,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum AiDocFormat {
+    Text,
+    Json,
+    Markdown,
+}
+
 pub fn run(cli: Cli) -> Result<RunOutput> {
     match cli.command {
         Command::Check {
@@ -367,6 +404,13 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             guard,
         } => ci_snippet_with_options(template, &version, guard),
         Command::Suggest { path } => suggest_next_steps(&path),
+        Command::Spec { format } => ai::spec(format),
+        Command::Recipes { format } => ai::recipes(format),
+        Command::AgentGuide {
+            path,
+            format,
+            profile,
+        } => ai::agent_guide(&path, format, profile),
         Command::VersionCheck { repo } => version_check(&repo),
         Command::Github {
             repo,
@@ -1960,6 +2004,39 @@ requires = ["setuptools"]
         assert!(output.text.contains("Kota-Ohno/repo-doctor@v9.9.9"));
         assert!(output.text.contains("args: guard --base"));
         assert!(output.text.contains("--fail-on warn"));
+    }
+
+    #[test]
+    fn spec_json_is_machine_readable() {
+        let output = ai::spec(AiDocFormat::Json).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&output.text).unwrap();
+
+        assert_eq!(value["schema_version"], 1);
+        assert_eq!(value["tool"], "repo-doctor");
+        assert!(output.text.contains("\"guard\""));
+        assert!(output.text.contains("\"recipes\""));
+    }
+
+    #[test]
+    fn recipes_markdown_contains_guard_recipe() {
+        let output = ai::recipes(AiDocFormat::Markdown).unwrap();
+
+        assert!(output.text.contains("# repo-doctor AI recipes"));
+        assert!(output.text.contains("vibecoding-guard"));
+        assert!(output.text.contains("repo-doctor guard --fail-on warn"));
+    }
+
+    #[test]
+    fn agent_guide_uses_detected_profiles() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        write_rust_fixture(temp_dir.path());
+
+        let output =
+            ai::agent_guide(temp_dir.path(), AiDocFormat::Markdown, Profile::Auto).unwrap();
+
+        assert!(output.text.contains("rust"));
+        assert!(output.text.contains("cargo test"));
+        assert!(output.text.contains("repo-doctor guard --fail-on warn"));
     }
 
     #[test]
