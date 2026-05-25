@@ -26,6 +26,22 @@ jobs:
       - run: cargo nextest run
       - run: cargo test --doc
       - run: taplo fmt --check
+      - run: sh -n scripts/install.sh
+      - name: Smoke test install.sh with local release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          target="x86_64-unknown-linux-gnu"
+          printf '#!/usr/bin/env sh\necho repo-doctor smoke\n' > "$tmp/repo-doctor"
+          chmod +x "$tmp/repo-doctor"
+          tar -C "$tmp" -czf "$tmp/repo-doctor-$target.tar.gz" repo-doctor
+          sha256sum "$tmp/repo-doctor-$target.tar.gz" > "$tmp/repo-doctor-$target.tar.gz.sha256"
+          REPO_DOCTOR_BASE_URL="file://$tmp" scripts/install.sh --version test --dir "$tmp/bin"
+          "$tmp/bin/repo-doctor"
+      - run: ruby -e 'require "yaml"; YAML.load_file("action.yml")'
+      - run: cargo run -- ci --template generic > /tmp/repo-doctor.yml
+      - run: ruby -e 'require "yaml"; YAML.load_file("/tmp/repo-doctor.yml")'
 
   audit:
     name: Audit

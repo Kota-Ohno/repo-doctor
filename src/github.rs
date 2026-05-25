@@ -129,6 +129,55 @@ pub(crate) fn setup(
     Ok(actions)
 }
 
+pub(crate) fn setup_plan(
+    repo: &str,
+    topics: &[String],
+    homepage: Option<&str>,
+    branch_protection: bool,
+) -> Result<Vec<String>> {
+    validate_repo(repo)?;
+    let mut actions = Vec::new();
+    if !topics.is_empty() {
+        actions.push(format!(
+            "would set {} topic(s): {}",
+            topics.len(),
+            topics.join(", ")
+        ));
+    }
+    if let Some(homepage) = homepage {
+        actions.push(format!("would set homepage: {homepage}"));
+    }
+    actions.push("would enable vulnerability alerts".to_owned());
+    if branch_protection {
+        actions.push("would enable default branch protection".to_owned());
+    }
+    Ok(actions)
+}
+
+pub(crate) fn auth_doctor() -> Result<String> {
+    let mut lines = vec!["repo-doctor gh auth doctor".to_owned()];
+    if gh_status(&["auth", "status"]) {
+        lines.push("gh_auth=ok".to_owned());
+    } else {
+        lines.push("gh_auth=failed".to_owned());
+        lines.push("fix=run `gh auth login` and retry remote checks".to_owned());
+        return Ok(lines.join("\n"));
+    }
+
+    for (name, args) in [
+        ("repo_view", vec!["repo", "view", "--json", "name"]),
+        ("api_user", vec!["api", "user", "--silent"]),
+    ] {
+        if gh_status(&args) {
+            lines.push(format!("{name}=ok"));
+        } else {
+            lines.push(format!("{name}=unavailable"));
+        }
+    }
+    lines.push("note=branch protection and security settings may require additional repository permissions".to_owned());
+    Ok(lines.join("\n"))
+}
+
 fn gh_unit(args: &[&str]) -> Result<()> {
     let output = Command::new("gh")
         .args(args)

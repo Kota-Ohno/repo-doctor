@@ -9,9 +9,9 @@ stdout = """
     "docker"
   ],
   "summary": {
-    "pass": 42,
+    "pass": 43,
     "warn": 0,
-    "total": 42,
+    "total": 43,
     "score": 100
   },
   "checks": [
@@ -118,6 +118,13 @@ stdout = """
       "status": "pass",
       "severity": "info",
       "message": "Changelog or release notes are present",
+      "remediation": "No action needed."
+    },
+    {
+      "id": "monorepo_workspaces",
+      "status": "pass",
+      "severity": "info",
+      "message": "Monorepo or workspace layout is not detected",
       "remediation": "No action needed."
     },
     {

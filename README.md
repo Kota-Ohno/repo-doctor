@@ -24,6 +24,7 @@ files and ecosystem-specific metadata are present. It currently checks for:
 - JVM metadata when Maven or Gradle files are detected
 - Deno and Bun metadata for TypeScript/JavaScript runtimes
 - .NET, PHP, Ruby, C/C++, Swift, and Kotlin project metadata
+- frontend framework, Terraform/OpenTofu, and docs-site metadata
 
 By default, `check` runs core repository checks plus auto-detected ecosystem
 profiles. Use `--profile generic` for language-independent checks only, or
@@ -76,6 +77,7 @@ Docker:
 ```bash
 docker build -t repo-doctor .
 docker run --rm -v "$PWD:/repo" repo-doctor check /repo
+docker run --rm -v "$PWD:/repo" ghcr.io/kota-ohno/repo-doctor:main check /repo
 ```
 
 More install paths are documented in [docs/installation.md](docs/installation.md).
@@ -105,6 +107,8 @@ repo-doctor check --format sarif
 repo-doctor check --format compact
 repo-doctor check --format junit
 repo-doctor check --format html
+repo-doctor check --format summary
+repo-doctor check --format html --output repo-doctor.html
 repo-doctor check --config repo-doctor.toml
 repo-doctor check --baseline repo-doctor-baseline.json
 repo-doctor check --warnings-only
@@ -124,6 +128,9 @@ repo-doctor check --profile ruby
 repo-doctor check --profile cpp
 repo-doctor check --profile swift
 repo-doctor check --profile kotlin
+repo-doctor check --profile frontend
+repo-doctor check --profile iac
+repo-doctor check --profile docs
 repo-doctor check --fail-on warn
 repo-doctor github Kota-Ohno/repo-doctor
 repo-doctor github Kota-Ohno/repo-doctor --warnings-only
@@ -134,10 +141,15 @@ repo-doctor suggest
 repo-doctor ci --template node
 repo-doctor explain readme
 repo-doctor config-validate repo-doctor.toml
+repo-doctor config-explain
 repo-doctor init --print-config
+repo-doctor init --interactive
 repo-doctor init --full --dry-run
 repo-doctor init --full --template node --yes
 repo-doctor version-check
+repo-doctor github-auth-doctor
+repo-doctor github-setup Kota-Ohno/repo-doctor --topic rust --dry-run
+repo-doctor scorecard Kota-Ohno/repo-doctor
 repo-doctor list-profiles
 repo-doctor list-rules
 cargo test
@@ -212,6 +224,7 @@ repo-doctor check --format github --fail-on warn
 repo-doctor check --format compact --min-score 90
 repo-doctor check --format junit > repo-doctor-junit.xml
 repo-doctor check --format html > repo-doctor.html
+repo-doctor check --format summary
 ```
 
 For config authoring:
@@ -224,6 +237,7 @@ repo-doctor list-profiles
 repo-doctor list-rules
 repo-doctor explain readme
 repo-doctor config-validate repo-doctor.toml
+repo-doctor config-explain
 repo-doctor check --warnings-only
 ```
 
@@ -235,6 +249,15 @@ For incremental adoption:
 repo-doctor baseline > repo-doctor-baseline.json
 repo-doctor check --baseline repo-doctor-baseline.json --fail-on warn
 ```
+
+More examples:
+
+その他の例:
+
+- [docs/examples.md](docs/examples.md)
+- [docs/troubleshooting.md](docs/troubleshooting.md)
+- [docs/rules.md](docs/rules.md)
+- [docs/release-packaging.md](docs/release-packaging.md)
 
 ## Layout
 

@@ -121,6 +121,51 @@ impl Config {
         configured
     }
 
+    pub(crate) fn explain_lines(&self) -> Vec<String> {
+        let mut lines = Vec::new();
+        if !self.presets.is_empty() {
+            lines.push(format!(
+                "presets={}",
+                self.presets
+                    .iter()
+                    .map(|preset| match preset {
+                        Preset::RustCli => "rust-cli",
+                        Preset::RustLib => "rust-lib",
+                        Preset::Oss => "oss",
+                        Preset::Internal => "internal",
+                        Preset::Strict => "strict",
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        if !self.exclude_paths.is_empty() {
+            lines.push(format!("exclude_paths={}", self.exclude_paths.join(", ")));
+        }
+        let disabled = self.disabled_rules_with_reason();
+        if !disabled.is_empty() {
+            lines.push(format!(
+                "disabled_rules={}",
+                disabled.into_iter().collect::<Vec<_>>().join(", ")
+            ));
+        }
+        let overrides = self.severity_overrides();
+        if !overrides.is_empty() {
+            lines.push(format!(
+                "severity_overrides={}",
+                overrides
+                    .into_iter()
+                    .map(|(id, severity)| format!("{id}:{severity}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        if lines.is_empty() {
+            lines.push("settings=defaults".to_owned());
+        }
+        lines
+    }
+
     fn disabled_rules_with_reason(&self) -> HashSet<&str> {
         self.rules
             .iter()

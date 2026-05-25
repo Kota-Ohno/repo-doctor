@@ -25,6 +25,9 @@ pub enum Profile {
     Cpp,
     Swift,
     Kotlin,
+    Frontend,
+    Iac,
+    Docs,
 }
 
 impl Profile {
@@ -52,6 +55,15 @@ impl Profile {
             ),
             ("swift", "Package.swift or Package.resolved"),
             ("kotlin", "Kotlin Gradle files or Kotlin source paths"),
+            (
+                "frontend",
+                "Next.js, Vite, Astro, SvelteKit, Remix, or Nuxt metadata",
+            ),
+            ("iac", "Terraform or OpenTofu files"),
+            (
+                "docs",
+                "MkDocs, Docusaurus, mdBook, or VitePress docs sites",
+            ),
         ]
     }
 
@@ -73,6 +85,9 @@ impl Profile {
             Profile::Cpp => "cpp",
             Profile::Swift => "swift",
             Profile::Kotlin => "kotlin",
+            Profile::Frontend => "frontend",
+            Profile::Iac => "iac",
+            Profile::Docs => "docs",
         }
     }
 }
@@ -132,6 +147,15 @@ fn detect(path: &Path) -> Vec<Profile> {
     }
     if has_kotlin_files(path) {
         profiles.push(Profile::Kotlin);
+    }
+    if has_frontend_files(path) {
+        profiles.push(Profile::Frontend);
+    }
+    if has_iac_files(path) {
+        profiles.push(Profile::Iac);
+    }
+    if has_docs_site_files(path) {
+        profiles.push(Profile::Docs);
     }
 
     profiles
@@ -217,6 +241,61 @@ fn has_kotlin_files(path: &Path) -> bool {
         || root_has_extension(path, "kts")
 }
 
+fn has_frontend_files(path: &Path) -> bool {
+    if root_has_any_file(
+        path,
+        &[
+            "next.config.js",
+            "next.config.mjs",
+            "vite.config.js",
+            "vite.config.ts",
+            "astro.config.mjs",
+            "svelte.config.js",
+            "nuxt.config.ts",
+        ],
+    ) {
+        return true;
+    }
+
+    let Some(package) = read_json(path.join("package.json")) else {
+        return false;
+    };
+
+    [
+        "next",
+        "vite",
+        "astro",
+        "svelte",
+        "@sveltejs/kit",
+        "@remix-run/dev",
+        "nuxt",
+    ]
+    .iter()
+    .any(|dependency| package_has_dependency(&package, dependency))
+}
+
+fn has_iac_files(path: &Path) -> bool {
+    root_has_extension(path, "tf")
+        || root_has_extension(path, "tfvars")
+        || path.join(".terraform.lock.hcl").exists()
+        || path.join("tofu.lock.hcl").exists()
+}
+
+fn has_docs_site_files(path: &Path) -> bool {
+    root_has_any_file(
+        path,
+        &[
+            "mkdocs.yml",
+            "docusaurus.config.js",
+            "docusaurus.config.ts",
+            "book.toml",
+            "vitepress.config.ts",
+            "vitepress.config.js",
+        ],
+    ) || path.join("docs/.vitepress/config.ts").exists()
+        || path.join("docs/.vitepress/config.js").exists()
+}
+
 pub(crate) fn inspect(path: &Path, profiles: &[Profile]) -> Vec<Check> {
     let mut checks = Vec::new();
 
@@ -236,6 +315,9 @@ pub(crate) fn inspect(path: &Path, profiles: &[Profile]) -> Vec<Check> {
             Profile::Cpp => checks.extend(inspect_cpp(path)),
             Profile::Swift => checks.extend(inspect_swift(path)),
             Profile::Kotlin => checks.extend(inspect_kotlin(path)),
+            Profile::Frontend => checks.extend(inspect_frontend(path)),
+            Profile::Iac => checks.extend(inspect_iac(path)),
+            Profile::Docs => checks.extend(inspect_docs_site(path)),
             Profile::Auto | Profile::Generic => {}
         }
     }
@@ -269,6 +351,18 @@ fn inspect_rust(path: &Path) -> Vec<Check> {
 
     let package = parsed.get("package").and_then(toml::Value::as_table);
     let Some(package) = package else {
+        if parsed.get("workspace").is_some() {
+            let mut checks = vec![
+                check_rust_workspace(&parsed),
+                check_cargo_lock(path),
+                check_gitignore_target(path),
+                check_rust_toolchain(path),
+                check_rust_tooling_configs(path),
+            ];
+            checks.retain(|check| !check.id.is_empty());
+            return checks;
+        }
+
         return vec![warn(
             "rust_cargo_package",
             "Cargo.toml is missing [package]",
@@ -1740,6 +1834,183 @@ fn inspect_jvm(path: &Path) -> Vec<Check> {
     }
 
     checks
+}
+
+fn inspect_frontend(path: &Path) -> Vec<Check> {
+    let package = read_json(path.join("package.json")).unwrap_or(JsonValue::Null);
+    vec![
+        check_frontend_framework(path, &package),
+        check_frontend_build_script(&package),
+        check_frontend_source_dir(path),
+    ]
+}
+
+fn check_frontend_framework(path: &Path, package: &JsonValue) -> Check {
+    let frameworks = [
+        "next",
+        "vite",
+        "astro",
+        "@sveltejs/kit",
+        "@remix-run/dev",
+        "nuxt",
+    ];
+    let dependency = frameworks
+        .iter()
+        .find(|framework| package_has_dependency(package, framework));
+    if let Some(framework) = dependency {
+        pass(
+            "frontend_framework",
+            format!("Frontend framework dependency is present: {framework}"),
+        )
+    } else if has_frontend_files(path) {
+        pass("frontend_framework", "Frontend framework config is present")
+    } else {
+        warn(
+            "frontend_framework",
+            "Frontend framework metadata is missing",
+            "Add framework dependencies or config files such as vite.config.ts or next.config.js.",
+        )
+    }
+}
+
+fn check_frontend_build_script(package: &JsonValue) -> Check {
+    if package_script(package, "build") {
+        pass(
+            "frontend_build_script",
+            "Frontend build script is configured",
+        )
+    } else {
+        warn(
+            "frontend_build_script",
+            "Frontend build script is missing",
+            "Add a package.json build script for CI and deployment.",
+        )
+    }
+}
+
+fn check_frontend_source_dir(path: &Path) -> Check {
+    if ["src", "app", "pages"]
+        .iter()
+        .any(|candidate| path.join(candidate).is_dir())
+    {
+        pass(
+            "frontend_source_dir",
+            "Frontend source directory is present",
+        )
+    } else {
+        warn(
+            "frontend_source_dir",
+            "Frontend source directory is missing",
+            "Add src/, app/, or pages/ depending on the framework.",
+        )
+    }
+}
+
+fn inspect_iac(path: &Path) -> Vec<Check> {
+    vec![
+        check_iac_files(path),
+        check_iac_lockfile(path),
+        check_iac_ci(path),
+    ]
+}
+
+fn check_iac_files(path: &Path) -> Check {
+    if root_has_extension(path, "tf") {
+        pass(
+            "iac_terraform_files",
+            "Terraform/OpenTofu files are present",
+        )
+    } else {
+        warn(
+            "iac_terraform_files",
+            "Terraform/OpenTofu files are missing",
+            "Add .tf files or run a different profile.",
+        )
+    }
+}
+
+fn check_iac_lockfile(path: &Path) -> Check {
+    if path.join(".terraform.lock.hcl").exists() || path.join("tofu.lock.hcl").exists() {
+        pass("iac_lockfile", "IaC provider lockfile is present")
+    } else {
+        warn(
+            "iac_lockfile",
+            "IaC provider lockfile is missing",
+            "Commit .terraform.lock.hcl or tofu.lock.hcl for reproducible provider versions.",
+        )
+    }
+}
+
+fn check_iac_ci(path: &Path) -> Check {
+    let workflows = workflow_contents(path);
+    if workflows.contains("terraform fmt")
+        || workflows.contains("terraform validate")
+        || workflows.contains("tofu fmt")
+        || workflows.contains("tofu validate")
+    {
+        pass(
+            "iac_ci_validate",
+            "IaC formatting or validation is present in CI",
+        )
+    } else {
+        warn(
+            "iac_ci_validate",
+            "IaC formatting or validation is missing from CI",
+            "Add terraform/tofu fmt and validate commands to CI.",
+        )
+    }
+}
+
+fn inspect_docs_site(path: &Path) -> Vec<Check> {
+    vec![
+        check_docs_site_config(path),
+        check_docs_site_dir(path),
+        check_docs_site_ci(path),
+    ]
+}
+
+fn check_docs_site_config(path: &Path) -> Check {
+    if has_docs_site_files(path) {
+        pass("docs_site_config", "Docs site configuration is present")
+    } else {
+        warn(
+            "docs_site_config",
+            "Docs site configuration is missing",
+            "Add mkdocs.yml, docusaurus.config.*, book.toml, or VitePress config.",
+        )
+    }
+}
+
+fn check_docs_site_dir(path: &Path) -> Check {
+    if path.join("docs").is_dir() || path.join("website").is_dir() {
+        pass(
+            "docs_site_content",
+            "Docs site content directory is present",
+        )
+    } else {
+        warn(
+            "docs_site_content",
+            "Docs site content directory is missing",
+            "Add docs/ or website/ content.",
+        )
+    }
+}
+
+fn check_docs_site_ci(path: &Path) -> Check {
+    let workflows = workflow_contents(path);
+    if workflows.contains("mkdocs build")
+        || workflows.contains("docusaurus build")
+        || workflows.contains("mdbook build")
+        || workflows.contains("vitepress build")
+    {
+        pass("docs_site_ci", "Docs site build is present in CI")
+    } else {
+        warn(
+            "docs_site_ci",
+            "Docs site build is missing from CI",
+            "Add a docs build command to CI.",
+        )
+    }
 }
 
 fn check_jvm_build_file(has_maven: bool, has_gradle: bool) -> Check {

@@ -3,7 +3,7 @@ args = "check"
 stdout = """
 Repository: .
 Profiles: rust, docker
-Summary: 42 passed, 0 warnings, score 100
+Summary: 43 passed, 0 warnings, score 100
 [PASS] readme: README is present
 [PASS] license: License file is present
 [PASS] gitignore: .gitignore is present
@@ -19,6 +19,7 @@ Summary: 42 passed, 0 warnings, score 100
 [PASS] issue_templates: Issue template is present
 [PASS] pull_request_template: Pull request template is present
 [PASS] changelog: Changelog or release notes are present
+[PASS] monorepo_workspaces: Monorepo or workspace layout is not detected
 [PASS] issue_template_frontmatter: Issue template frontmatter is populated
 [PASS] github_actions_yaml: GitHub Actions workflows parse as YAML
 [PASS] github_actions_triggers: GitHub Actions run on push and pull_request

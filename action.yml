@@ -22,6 +22,18 @@ inputs:
   baseline:
     description: Optional baseline JSON path.
     default: ""
+  summary:
+    description: Write repo-doctor summary to the GitHub job summary.
+    default: "true"
+  html-report:
+    description: Optional HTML report path to write.
+    default: ""
+  junit-report:
+    description: Optional JUnit report path to write.
+    default: ""
+  sarif-report:
+    description: Optional SARIF report path to write.
+    default: ""
   args:
     description: Override arguments passed to repo-doctor.
     default: ""
@@ -55,14 +67,32 @@ runs:
         fi
         mkdir -p "${RUNNER_TEMP}/repo-doctor-bin"
         if [ "${os}" = "pc-windows-msvc" ]; then
-          curl -fsSL "${base}/repo-doctor-${target}.zip" -o "${RUNNER_TEMP}/repo-doctor.zip"
-          unzip -q "${RUNNER_TEMP}/repo-doctor.zip" -d "${RUNNER_TEMP}/repo-doctor-bin"
+          archive="repo-doctor-${target}.zip"
         else
-          curl -fsSL "${base}/repo-doctor-${target}.tar.gz" -o "${RUNNER_TEMP}/repo-doctor.tar.gz"
-          tar -xzf "${RUNNER_TEMP}/repo-doctor.tar.gz" -C "${RUNNER_TEMP}/repo-doctor-bin"
+          archive="repo-doctor-${target}.tar.gz"
+        fi
+        curl -fsSL "${base}/${archive}" -o "${RUNNER_TEMP}/${archive}"
+        curl -fsSL "${base}/${archive}.sha256" -o "${RUNNER_TEMP}/${archive}.sha256"
+        if command -v sha256sum >/dev/null 2>&1; then
+          (cd "${RUNNER_TEMP}" && sha256sum -c "${archive}.sha256")
+        else
+          expected="$(awk '{print $1}' "${RUNNER_TEMP}/${archive}.sha256")"
+          actual="$(shasum -a 256 "${RUNNER_TEMP}/${archive}" | awk '{print $1}')"
+          if [ "${expected}" != "${actual}" ]; then
+            echo "checksum mismatch: expected ${expected}, got ${actual}" >&2
+            exit 1
+          fi
+        fi
+        if [ "${os}" = "pc-windows-msvc" ]; then
+          unzip -q "${RUNNER_TEMP}/${archive}" -d "${RUNNER_TEMP}/repo-doctor-bin"
+        else
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/repo-doctor-bin"
           chmod +x "${RUNNER_TEMP}/repo-doctor-bin/repo-doctor"
         fi
         echo "${RUNNER_TEMP}/repo-doctor-bin" >> "${GITHUB_PATH}"
+    - name: Add repo-doctor problem matcher
+      shell: bash
+      run: echo "::add-matcher::${{ github.action_path }}/.github/repo-doctor-matcher.json"
     - name: Run repo-doctor
       shell: bash
       run: |
@@ -82,3 +112,37 @@ runs:
           args+=(--baseline "${{ inputs.baseline }}")
         fi
         repo-doctor "${args[@]}"
+    - name: Write repo-doctor summary
+      if: always() && inputs.summary == 'true' && inputs.args == ''
+      shell: bash
+      run: |
+        set -euo pipefail
+        args=(check "${{ inputs.path }}" --profile "${{ inputs.profile }}" --format markdown)
+        if [ -n "${{ inputs.config }}" ]; then
+          args+=(--config "${{ inputs.config }}")
+        fi
+        if [ -n "${{ inputs.baseline }}" ]; then
+          args+=(--baseline "${{ inputs.baseline }}")
+        fi
+        repo-doctor "${args[@]}" >> "${GITHUB_STEP_SUMMARY}"
+    - name: Write optional reports
+      if: always() && inputs.args == ''
+      shell: bash
+      run: |
+        set -euo pipefail
+        common_args=(check "${{ inputs.path }}" --profile "${{ inputs.profile }}")
+        if [ -n "${{ inputs.config }}" ]; then
+          common_args+=(--config "${{ inputs.config }}")
+        fi
+        if [ -n "${{ inputs.baseline }}" ]; then
+          common_args+=(--baseline "${{ inputs.baseline }}")
+        fi
+        if [ -n "${{ inputs.html-report }}" ]; then
+          repo-doctor "${common_args[@]}" --format html --output "${{ inputs.html-report }}"
+        fi
+        if [ -n "${{ inputs.junit-report }}" ]; then
+          repo-doctor "${common_args[@]}" --format junit --output "${{ inputs.junit-report }}"
+        fi
+        if [ -n "${{ inputs.sarif-report }}" ]; then
+          repo-doctor "${common_args[@]}" --format sarif --output "${{ inputs.sarif-report }}"
+        fi

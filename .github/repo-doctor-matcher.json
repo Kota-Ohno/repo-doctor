@@ -1,0 +1,14 @@
+{
+  "problemMatcher": [
+    {
+      "owner": "repo-doctor",
+      "pattern": [
+        {
+          "regexp": "^\\[WARN\\] ([^:]+): (.*)$",
+          "code": 1,
+          "message": 2
+        }
+      ]
+    }
+  ]
+}

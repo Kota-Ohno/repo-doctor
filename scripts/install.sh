@@ -70,7 +70,9 @@ if [ "$target" = "aarch64-unknown-linux-gnu" ]; then
   exit 1
 fi
 
-if [ "$version" = "latest" ]; then
+if [ -n "${REPO_DOCTOR_BASE_URL:-}" ]; then
+  base="$REPO_DOCTOR_BASE_URL"
+elif [ "$version" = "latest" ]; then
   base="https://github.com/$repo/releases/latest/download"
 else
   base="https://github.com/$repo/releases/download/$version"
@@ -81,19 +83,20 @@ trap 'rm -rf "$tmp"' EXIT
 
 mkdir -p "$bin_dir"
 echo "Installing repo-doctor $version for $target"
-curl -fsSL "$base/repo-doctor-$target.tar.gz" -o "$tmp/repo-doctor.tar.gz"
-curl -fsSL "$base/repo-doctor-$target.tar.gz.sha256" -o "$tmp/repo-doctor.tar.gz.sha256"
+archive="repo-doctor-$target.tar.gz"
+curl -fsSL "$base/$archive" -o "$tmp/$archive"
+curl -fsSL "$base/$archive.sha256" -o "$tmp/$archive.sha256"
 if command -v sha256sum >/dev/null 2>&1; then
-  (cd "$tmp" && sha256sum -c repo-doctor.tar.gz.sha256)
+  (cd "$tmp" && sha256sum -c "$archive.sha256")
 else
-  expected="$(awk '{print $1}' "$tmp/repo-doctor.tar.gz.sha256")"
-  actual="$(shasum -a 256 "$tmp/repo-doctor.tar.gz" | awk '{print $1}')"
+  expected="$(awk '{print $1}' "$tmp/$archive.sha256")"
+  actual="$(shasum -a 256 "$tmp/$archive" | awk '{print $1}')"
   if [ "$expected" != "$actual" ]; then
     echo "checksum mismatch: expected $expected, got $actual" >&2
     exit 1
   fi
 fi
-tar -xzf "$tmp/repo-doctor.tar.gz" -C "$tmp"
+tar -xzf "$tmp/$archive" -C "$tmp"
 install -m 0755 "$tmp/repo-doctor" "$bin_dir/repo-doctor"
 
 echo "Installed repo-doctor to $bin_dir/repo-doctor"

@@ -104,6 +104,7 @@ pub(crate) fn inspect(path: &Path) -> Vec<Check> {
             ],
             "Changelog or release notes are present",
         ),
+        check_monorepo_workspaces(path),
     ];
 
     if let Some(check) = check_issue_template_frontmatter(path) {
@@ -111,6 +112,29 @@ pub(crate) fn inspect(path: &Path) -> Vec<Check> {
     }
     checks.extend(inspect_workflow_content(path));
     checks
+}
+
+fn check_monorepo_workspaces(path: &Path) -> Check {
+    let roots = ["Cargo.toml", "package.json", "pyproject.toml", "go.mod"]
+        .iter()
+        .filter(|candidate| path.join(candidate).exists())
+        .count();
+    let workspace_dirs = ["crates", "packages", "apps", "services", "modules"]
+        .iter()
+        .filter(|candidate| path.join(candidate).is_dir())
+        .count();
+
+    if roots > 1 || workspace_dirs > 0 {
+        pass(
+            "monorepo_workspaces",
+            "Monorepo or workspace layout hints are present",
+        )
+    } else {
+        pass(
+            "monorepo_workspaces",
+            "Monorepo or workspace layout is not detected",
+        )
+    }
 }
 
 fn check_docs_or_examples(path: &Path) -> Check {

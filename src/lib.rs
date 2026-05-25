@@ -45,6 +45,10 @@ pub enum Command {
         #[arg(long)]
         baseline: Option<PathBuf>,
 
+        /// Write the report to this file instead of stdout.
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
         /// Emit only warning checks.
         #[arg(long)]
         warnings_only: bool,
@@ -83,9 +87,13 @@ pub enum Command {
         /// Print starter repo-doctor.toml to stdout without writing files.
         #[arg(long)]
         print_config: bool,
+
+        /// Ask setup questions before writing files.
+        #[arg(long)]
+        interactive: bool,
     },
 
-    /// Create a baseline JSON containing current warning rule IDs.
+    /// Create a baseline JSON containing current warning IDs, messages, and locations.
     Baseline {
         /// Repository directory to inspect.
         #[arg(default_value = ".")]
@@ -108,6 +116,13 @@ pub enum Command {
     ConfigValidate {
         /// Config file path.
         #[arg(default_value = "repo-doctor.toml")]
+        path: PathBuf,
+    },
+
+    /// Explain the effective repo-doctor configuration.
+    ConfigExplain {
+        /// Repository directory to inspect.
+        #[arg(default_value = ".")]
         path: PathBuf,
     },
 
@@ -166,6 +181,19 @@ pub enum Command {
         /// Enable default branch protection.
         #[arg(long)]
         branch_protection: bool,
+
+        /// Show planned changes without applying them.
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Check gh CLI authentication for remote GitHub checks.
+    GithubAuthDoctor,
+
+    /// Print the OpenSSF Scorecard URL for a GitHub repository.
+    Scorecard {
+        /// GitHub repository in owner/name form.
+        repo: String,
     },
 
     /// List supported profiles and auto-detection hints.
@@ -194,6 +222,7 @@ pub enum OutputFormat {
     Compact,
     Junit,
     Html,
+    Summary,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -218,6 +247,7 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             profile,
             config,
             baseline,
+            output,
             warnings_only,
             min_score,
             fail_on,
@@ -231,6 +261,7 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
                 warnings_only,
                 min_score,
                 baseline: baseline.as_deref(),
+                output: output.as_deref(),
             },
         ),
         Command::Init {
@@ -240,6 +271,7 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             yes,
             template,
             print_config,
+            interactive,
         } => init_config_with_options(
             &path,
             InitOptions {
@@ -248,12 +280,14 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
                 yes,
                 template,
                 print_config,
+                interactive,
             },
         ),
         Command::Baseline { path } => create_baseline(&path),
         Command::Batch { input } => batch_check(&input),
         Command::Explain { rule_id } => explain_rule(&rule_id),
         Command::ConfigValidate { path } => validate_config_file(&path),
+        Command::ConfigExplain { path } => explain_config(&path),
         Command::Ci { template, version } => ci_snippet(template, &version),
         Command::Suggest { path } => suggest_next_steps(&path),
         Command::VersionCheck { repo } => version_check(&repo),
@@ -269,6 +303,7 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
                 warnings_only,
                 min_score: None,
                 baseline: None,
+                output: None,
             },
         ),
         Command::GithubSetup {
@@ -276,7 +311,16 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             topics,
             homepage,
             branch_protection,
-        } => github_setup(&repo, &topics, homepage.as_deref(), branch_protection),
+            dry_run,
+        } => github_setup(
+            &repo,
+            &topics,
+            homepage.as_deref(),
+            branch_protection,
+            dry_run,
+        ),
+        Command::GithubAuthDoctor => github_auth_doctor(),
+        Command::Scorecard { repo } => scorecard_link(&repo),
         Command::ListProfiles => Ok(RunOutput {
             text: list_profiles(),
             exit_code: 0,
@@ -322,6 +366,7 @@ pub fn check_repository_with_config(
             warnings_only: false,
             min_score: None,
             baseline: None,
+            output: None,
         },
     )
 }
@@ -332,6 +377,7 @@ struct CheckOptions<'a> {
     warnings_only: bool,
     min_score: Option<u8>,
     baseline: Option<&'a Path>,
+    output: Option<&'a Path>,
 }
 
 fn check_repository_with_options(
@@ -347,7 +393,7 @@ fn check_repository_with_options(
     let mut report = inspect_repository_with_config(path, profile, &config);
     if let Some(baseline) = options.baseline {
         let ignored = read_baseline(baseline)?;
-        report = report.suppress_warning_ids(&ignored);
+        report = report.suppress_baseline_warnings(&ignored);
     }
     let exit_code = if (options.fail_on == Some(FailOn::Warn) && report.has_warnings())
         || options
@@ -373,7 +419,16 @@ fn check_repository_with_options(
         OutputFormat::Compact => report.format_compact(),
         OutputFormat::Junit => report.format_junit(),
         OutputFormat::Html => report.format_html(),
+        OutputFormat::Summary => report.format_summary(),
     };
+
+    if let Some(output) = options.output {
+        write_output(output, &text)?;
+        return Ok(RunOutput {
+            text: format!("Wrote repo-doctor report to {}", output.display()),
+            exit_code,
+        });
+    }
 
     Ok(RunOutput { text, exit_code })
 }
@@ -402,6 +457,7 @@ pub struct InitOptions {
     pub yes: bool,
     pub template: InitTemplate,
     pub print_config: bool,
+    pub interactive: bool,
 }
 
 pub fn init_config(path: &Path, full: bool) -> Result<RunOutput> {
@@ -413,6 +469,7 @@ pub fn init_config(path: &Path, full: bool) -> Result<RunOutput> {
             yes: full,
             template: InitTemplate::Generic,
             print_config: false,
+            interactive: false,
         },
     )
 }
@@ -426,6 +483,12 @@ pub fn init_config_with_options(path: &Path, options: InitOptions) -> Result<Run
     }
 
     validate_repository_path(path)?;
+
+    let options = if options.interactive {
+        interactive_init_options(options)?
+    } else {
+        options
+    };
 
     if options.full && !options.dry_run && !options.yes {
         bail!(
@@ -474,6 +537,22 @@ pub fn init_config_with_options(path: &Path, options: InitOptions) -> Result<Run
         },
         exit_code: 0,
     })
+}
+
+fn interactive_init_options(mut options: InitOptions) -> Result<InitOptions> {
+    use std::io::{IsTerminal, Write};
+
+    if !std::io::stdin().is_terminal() {
+        bail!("init --interactive requires a TTY; use --dry-run or --yes in automation");
+    }
+
+    let mut answer = String::new();
+    print!("Create support files too? [y/N] ");
+    std::io::stdout().flush()?;
+    std::io::stdin().read_line(&mut answer)?;
+    options.full = matches!(answer.trim(), "y" | "Y" | "yes" | "YES");
+    options.yes = true;
+    Ok(options)
 }
 
 struct InitFile {
@@ -605,6 +684,7 @@ fn check_github_repository_with_options(
         OutputFormat::Compact => report.format_compact(),
         OutputFormat::Junit => report.format_junit(),
         OutputFormat::Html => report.format_html(),
+        OutputFormat::Summary => report.format_summary(),
     };
 
     Ok(RunOutput { text, exit_code: 0 })
@@ -621,13 +701,19 @@ pub fn list_profiles() -> String {
 pub fn list_rules() -> String {
     report::known_rules()
         .iter()
-        .map(|rule| format!("{}\t{}\t{}", rule.id, rule.severity, rule.description))
+        .map(|rule| {
+            format!(
+                "{}\t{}\t{}\t{}",
+                rule.id, rule.severity, rule.category, rule.description
+            )
+        })
         .collect::<Vec<_>>()
         .join("\n")
 }
 
 pub fn explain_rule(rule_id: &str) -> Result<RunOutput> {
-    let Some(rule) = report::known_rules().iter().find(|rule| rule.id == rule_id) else {
+    let rules = report::known_rules();
+    let Some(rule) = rules.iter().find(|rule| rule.id == rule_id) else {
         bail!("unknown rule id: {rule_id}");
     };
 
@@ -653,6 +739,38 @@ pub fn validate_config_file(path: &Path) -> Result<RunOutput> {
             exit_code: 1,
         })
     }
+}
+
+pub fn explain_config(path: &Path) -> Result<RunOutput> {
+    validate_repository_path(path)?;
+    let config_path = path.join("repo-doctor.toml");
+    let config = config::load(path, None)?;
+    let selected = config.selected_profiles(path, Profile::Auto);
+    let mut lines = vec![
+        "repo-doctor effective config".to_owned(),
+        format!(
+            "config={}",
+            if config_path.exists() {
+                config_path.display().to_string()
+            } else {
+                "default".to_owned()
+            }
+        ),
+        format!(
+            "profiles={}",
+            selected
+                .iter()
+                .map(|profile| profile.name())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    ];
+    lines.extend(config.explain_lines());
+
+    Ok(RunOutput {
+        text: lines.join("\n"),
+        exit_code: 0,
+    })
 }
 
 pub fn suggest_next_steps(path: &Path) -> Result<RunOutput> {
@@ -745,19 +863,42 @@ fn latest_release_tag(repo: &str) -> Result<String> {
 pub fn create_baseline(path: &Path) -> Result<RunOutput> {
     validate_repository_path(path)?;
     let report = inspect_repository(path, Profile::Auto);
-    let ids = report.warning_ids();
+    let entries = report.warning_baseline();
 
     Ok(RunOutput {
-        text: serde_json::to_string_pretty(&ids)?,
+        text: serde_json::to_string_pretty(&entries)?,
         exit_code: 0,
     })
 }
 
-fn read_baseline(path: &Path) -> Result<Vec<String>> {
+fn read_baseline(path: &Path) -> Result<Vec<report::BaselineWarning>> {
     let contents = std::fs::read_to_string(path)
         .with_context(|| format!("failed to read baseline: {}", path.display()))?;
-    serde_json::from_str(&contents)
-        .with_context(|| format!("failed to parse baseline: {}", path.display()))
+    if let Ok(entries) = serde_json::from_str::<Vec<report::BaselineWarning>>(&contents) {
+        return Ok(entries);
+    }
+    let ids = serde_json::from_str::<Vec<String>>(&contents)
+        .with_context(|| format!("failed to parse baseline: {}", path.display()))?;
+    Ok(ids
+        .into_iter()
+        .map(|id| report::BaselineWarning {
+            id,
+            message: None,
+            location: None,
+        })
+        .collect())
+}
+
+fn write_output(path: &Path, text: &str) -> Result<()> {
+    if let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create output directory: {}", parent.display()))?;
+    }
+    std::fs::write(path, text)
+        .with_context(|| format!("failed to write output: {}", path.display()))
 }
 
 pub fn batch_check(input: &Path) -> Result<RunOutput> {
@@ -801,15 +942,38 @@ pub fn github_setup(
     topics: &[String],
     homepage: Option<&str>,
     branch_protection: bool,
+    dry_run: bool,
 ) -> Result<RunOutput> {
-    let actions = github::setup(repo, topics, homepage, branch_protection)?;
+    let actions = if dry_run {
+        github::setup_plan(repo, topics, homepage, branch_protection)?
+    } else {
+        github::setup(repo, topics, homepage, branch_protection)?
+    };
 
     Ok(RunOutput {
         text: if actions.is_empty() {
-            "No GitHub setup actions requested".to_owned()
+            if dry_run {
+                "No GitHub setup actions planned".to_owned()
+            } else {
+                "No GitHub setup actions requested".to_owned()
+            }
         } else {
             actions.join("\n")
         },
+        exit_code: 0,
+    })
+}
+
+pub fn github_auth_doctor() -> Result<RunOutput> {
+    Ok(RunOutput {
+        text: github::auth_doctor()?,
+        exit_code: 0,
+    })
+}
+
+pub fn scorecard_link(repo: &str) -> Result<RunOutput> {
+    Ok(RunOutput {
+        text: format!("OpenSSF Scorecard: https://scorecard.dev/viewer/?uri=github.com/{repo}"),
         exit_code: 0,
     })
 }
@@ -891,6 +1055,24 @@ mod tests {
             check_repository(temp_dir.path(), OutputFormat::Text, Profile::Rust, None).unwrap();
 
         assert!(output.text.contains("[PASS] rust_cargo_name"));
+    }
+
+    #[test]
+    fn rust_workspace_root_without_package_is_valid() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("Cargo.toml"),
+            "[workspace]\nmembers = [\"crates/demo\"]\n",
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("Cargo.lock"), "\n").unwrap();
+        fs::write(temp_dir.path().join(".gitignore"), "/target\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Rust, None).unwrap();
+
+        assert!(output.text.contains("[PASS] rust_workspace"));
+        assert!(!output.text.contains("rust_cargo_package"));
     }
 
     #[test]
@@ -1442,6 +1624,7 @@ requires = ["setuptools"]
                 warnings_only: true,
                 min_score: None,
                 baseline: None,
+                output: None,
             },
         )
         .unwrap();
@@ -1464,6 +1647,7 @@ requires = ["setuptools"]
                 warnings_only: false,
                 min_score: Some(100),
                 baseline: None,
+                output: None,
             },
         )
         .unwrap();
@@ -1475,6 +1659,8 @@ requires = ["setuptools"]
     fn list_commands_include_profiles_and_rules() {
         assert!(list_profiles().contains("rust\tCargo.toml"));
         assert!(list_rules().contains("readme\twarning"));
+        assert!(list_rules().contains("node_lockfile\twarning\tprofile:node"));
+        assert!(list_rules().contains("github_remote_topics\twarning\tremote"));
     }
 
     #[test]
@@ -1505,6 +1691,16 @@ severity = "warning"
     }
 
     #[test]
+    fn config_explain_shows_effective_profiles() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output = explain_config(temp_dir.path()).unwrap();
+
+        assert!(output.text.contains("repo-doctor effective config"));
+        assert!(output.text.contains("profiles="));
+    }
+
+    #[test]
     fn baseline_suppresses_existing_warning_ids() {
         let temp_dir = tempfile::tempdir().unwrap();
         let baseline_path = temp_dir.path().join("baseline.json");
@@ -1520,6 +1716,7 @@ severity = "warning"
                 warnings_only: true,
                 min_score: None,
                 baseline: Some(&baseline_path),
+                output: None,
             },
         )
         .unwrap();
@@ -1537,6 +1734,41 @@ severity = "warning"
 
         assert!(output.text.contains("<!doctype html>"));
         assert!(output.text.contains("repo-doctor report"));
+    }
+
+    #[test]
+    fn summary_output_groups_next_actions() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Summary, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("repo-doctor"));
+        assert!(output.text.contains("warnings:"));
+    }
+
+    #[test]
+    fn output_option_writes_report_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output_path = temp_dir.path().join("reports/repo-doctor.txt");
+
+        let output = check_repository_with_options(
+            temp_dir.path(),
+            OutputFormat::Summary,
+            Profile::Auto,
+            None,
+            CheckOptions {
+                fail_on: None,
+                warnings_only: false,
+                min_score: None,
+                baseline: None,
+                output: Some(&output_path),
+            },
+        )
+        .unwrap();
+
+        assert!(output.text.contains("Wrote repo-doctor report"));
+        assert!(output_path.exists());
     }
 
     #[test]
@@ -1631,6 +1863,7 @@ disabled = true
                 yes: false,
                 template: InitTemplate::Node,
                 print_config: false,
+                interactive: false,
             },
         )
         .unwrap();
@@ -1651,6 +1884,7 @@ disabled = true
                 yes: true,
                 template: InitTemplate::Node,
                 print_config: false,
+                interactive: false,
             },
         )
         .unwrap();
@@ -1672,6 +1906,7 @@ disabled = true
                 yes: false,
                 template: InitTemplate::Generic,
                 print_config: true,
+                interactive: false,
             },
         )
         .unwrap();
@@ -1687,6 +1922,62 @@ disabled = true
         assert!(output.text.contains("actions/setup-go"));
         assert!(output.text.contains("Kota-Ohno/repo-doctor@v9.9.9"));
         assert!(output.text.contains("fail-on: warn"));
+    }
+
+    #[test]
+    fn explicit_frontend_profile_runs_frontend_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("package.json"),
+            r#"{"scripts":{"build":"vite build"},"dependencies":{"vite":"latest"}}"#,
+        )
+        .unwrap();
+        fs::create_dir(temp_dir.path().join("src")).unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Frontend, None).unwrap();
+
+        assert!(output.text.contains("frontend_framework"));
+        assert!(output.text.contains("frontend_build_script"));
+    }
+
+    #[test]
+    fn auto_detects_frontend_from_config_without_package_json() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("vite.config.ts"),
+            "export default {}\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("Profiles: frontend"));
+        assert!(output.text.contains("frontend_framework"));
+    }
+
+    #[test]
+    fn explicit_iac_profile_runs_iac_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(temp_dir.path().join("main.tf"), "terraform {}\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Iac, None).unwrap();
+
+        assert!(output.text.contains("iac_terraform_files"));
+    }
+
+    #[test]
+    fn explicit_docs_profile_runs_docs_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(temp_dir.path().join("mkdocs.yml"), "site_name: demo\n").unwrap();
+        fs::create_dir(temp_dir.path().join("docs")).unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Docs, None).unwrap();
+
+        assert!(output.text.contains("docs_site_config"));
     }
 
     #[test]

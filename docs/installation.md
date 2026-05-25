@@ -13,6 +13,7 @@ Try it locally without writing files:
 ```bash
 repo-doctor suggest
 repo-doctor check --format compact
+repo-doctor check --format summary
 ```
 
 Add CI without hand-writing YAML:
@@ -53,6 +54,7 @@ Common inputs:
 - `config`: optional config file
 - `baseline`: optional baseline JSON
 - `args`: full argument override for advanced use
+- `html-report`, `junit-report`, `sarif-report`: optional report files
 
 ## Install Script
 
@@ -78,8 +80,7 @@ customize installation.
 ## Docker
 
 ```bash
-docker build -t repo-doctor .
-docker run --rm -v "$PWD:/repo" repo-doctor check /repo --fail-on warn
+docker run --rm -v "$PWD:/repo" ghcr.io/kota-ohno/repo-doctor:main check /repo --fail-on warn
 ```
 
 ## pre-commit
@@ -102,6 +103,7 @@ package manager向けの雛形は `packaging/` にあります。
 - `packaging/scoop/repo-doctor.json`
 - `packaging/winget/README.md`
 - `packaging/npm/`
+- `packaging/binstall/README.md`
 
 The Homebrew and Scoop manifests contain `TODO` checksums until the first real
 release assets are published.
