@@ -35,6 +35,7 @@ pub(crate) fn spec(format: AiDocFormat) -> Result<RunOutput> {
             {"name": "guard", "purpose": "AI/VibeCoding guardrails over readiness checks plus Git diffs", "machine_outputs": ["json", "sarif", "junit", "github", "compact"]},
             {"name": "baseline", "purpose": "capture existing warnings for incremental adoption"},
             {"name": "ci", "purpose": "generate GitHub Actions workflows"},
+            {"name": "preflight", "purpose": "diagnose local optional tools and adoption prerequisites"},
             {"name": "github", "purpose": "remote GitHub posture checks through gh CLI"},
             {"name": "suggest", "purpose": "human and agent friendly next actions"},
             {"name": "spec", "purpose": "machine-readable product specification"},
@@ -157,6 +158,7 @@ fn recipe_catalog() -> &'static [Recipe] {
             goal: "Understand repository readiness without changing files",
             when_to_use: "Start of an AI coding session or repository triage",
             commands: &[
+                "repo-doctor preflight --format json",
                 "repo-doctor check --format summary",
                 "repo-doctor check --format json",
                 "repo-doctor suggest",
@@ -214,6 +216,20 @@ fn recipe_catalog() -> &'static [Recipe] {
                 "repo-doctor scorecard owner/repo",
             ],
             success: "Remote metadata, security settings, and branch protection are visible.",
+        },
+        Recipe {
+            id: "ecosystem-ci-template",
+            goal: "Generate starter CI for the detected ecosystem",
+            when_to_use: "Repository needs first-pass GitHub Actions without hand-writing YAML",
+            commands: &[
+                "repo-doctor list-profiles",
+                "repo-doctor ci --template node",
+                "repo-doctor ci --template python",
+                "repo-doctor ci --template go",
+                "repo-doctor ci --template jvm",
+                "repo-doctor ci --template dotnet",
+            ],
+            success: "The chosen template installs the required ecosystem toolchain before repo-doctor runs.",
         },
     ]
 }
@@ -333,22 +349,29 @@ fn profile_verification_commands(profile: Profile) -> &'static [&'static str] {
             "cargo clippy --all-targets --all-features -- -D warnings",
             "cargo test",
         ],
-        Profile::Node | Profile::Frontend => {
-            &["npm test --if-present", "npm run build --if-present"]
-        }
-        Profile::Python => &["python -m pytest"],
-        Profile::Go => &["go test ./..."],
+        Profile::Node | Profile::Frontend => &[
+            "npm test --if-present || pnpm test --if-present || yarn test || bun test",
+            "npm run build --if-present || pnpm build --if-present || yarn build || bun run build",
+        ],
+        Profile::Python => &["python -m pytest || uv run pytest || nox || tox"],
+        Profile::Go => &["go test ./...", "go vet ./... || golangci-lint run"],
         Profile::Docker => &["docker build -t local/repo-doctor-check ."],
-        Profile::Jvm | Profile::Kotlin => &["./gradlew test || mvn test"],
-        Profile::Deno => &["deno test"],
-        Profile::Bun => &["bun test"],
+        Profile::Jvm | Profile::Kotlin => &["./gradlew test || ./gradlew check || mvn test"],
+        Profile::Deno => &["deno task test || deno test"],
+        Profile::Bun => &["bun install --frozen-lockfile", "bun test"],
         Profile::Dotnet => &["dotnet test"],
         Profile::Php => &["composer test"],
         Profile::Ruby => &["bundle exec rake test || bundle exec rspec"],
-        Profile::Cpp => &["cmake --build build", "ctest --test-dir build"],
+        Profile::Cpp => &[
+            "cmake -S . -B build",
+            "cmake --build build",
+            "ctest --test-dir build",
+        ],
         Profile::Swift => &["swift test"],
         Profile::Iac => &["terraform fmt -check", "terraform validate"],
-        Profile::Docs => &["mkdocs build || mdbook build"],
+        Profile::Docs => {
+            &["mkdocs build || mdbook build || npm run docs:build || sphinx-build docs docs/_build"]
+        }
         Profile::Auto | Profile::Generic => &[],
     }
 }

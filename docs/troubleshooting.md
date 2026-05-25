@@ -92,6 +92,30 @@ git clone https://github.com/OWNER/REPO.git
 }
 ```
 
+## A warning is correct for apps but wrong for libraries
+
+Some checks intentionally differ by project shape. Applications usually commit
+lockfiles and service containers usually define a healthcheck. Libraries,
+packages, CLI images, and one-shot job images may have different expectations.
+
+Use a preset such as `python-lib`, `php-package`, `ruby-gem`, `cpp-lib`, or
+`docker-job`, or disable a specific rule with a rationale in `repo-doctor.toml`.
+
+appでは正しいwarningでもlibrary/package/job imageでは不要な場合があります。その場合は
+`python-lib`, `php-package`, `ruby-gem`, `cpp-lib`, `docker-job` などのpresetか、理由付きrule disableを使ってください。
+
+## Monorepo project is not at the repository root
+
+repo-doctor auto-detects common nested project files for Go, JVM, .NET, PHP,
+Ruby, C/C++, Swift, Kotlin, IaC, and docs-site layouts. If a custom layout is
+still missed, run an explicit profile or add the profile in `repo-doctor.toml`:
+
+repo-doctorはGo、JVM、.NET、PHP、Ruby、C/C++、Swift、Kotlin、IaC、docs-siteの代表的なnested layoutを検出します。独自layoutで検出されない場合は明示profileを指定します。
+
+```toml
+profiles = ["go", "dotnet", "docs"]
+```
+
 ## GitHub API permission denied
 
 Branch protection and vulnerability alert APIs may be hidden when the token

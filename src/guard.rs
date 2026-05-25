@@ -391,9 +391,13 @@ struct LockfileRule {
 
 impl LockfileRule {
     fn matches_manifest(&self, path: &str) -> bool {
-        self.manifests
-            .iter()
-            .any(|manifest| path == *manifest || path.ends_with(&format!("/{manifest}")))
+        self.manifests.iter().any(|manifest| {
+            if manifest.starts_with('.') {
+                path.ends_with(manifest)
+            } else {
+                path == *manifest || path.ends_with(&format!("/{manifest}"))
+            }
+        })
     }
 
     fn matches_lockfile_for_dir(&self, path: &str, dir: &str) -> bool {
@@ -422,7 +426,13 @@ fn manifest_lockfile_rules() -> Vec<LockfileRule> {
         },
         LockfileRule {
             manifests: &["pyproject.toml", "Pipfile"],
-            lockfiles: &["uv.lock", "poetry.lock", "Pipfile.lock", "pdm.lock"],
+            lockfiles: &[
+                "uv.lock",
+                "poetry.lock",
+                "Pipfile.lock",
+                "pdm.lock",
+                "requirements.lock",
+            ],
         },
         LockfileRule {
             manifests: &["requirements.txt"],
@@ -437,6 +447,25 @@ fn manifest_lockfile_rules() -> Vec<LockfileRule> {
             lockfiles: &["deno.lock"],
         },
         LockfileRule {
+            manifests: &["pom.xml"],
+            lockfiles: &["mvnw", ".mvn/wrapper/maven-wrapper.properties"],
+        },
+        LockfileRule {
+            manifests: &[
+                "build.gradle",
+                "build.gradle.kts",
+                "settings.gradle",
+                "settings.gradle.kts",
+                "gradle.properties",
+                "libs.versions.toml",
+            ],
+            lockfiles: &[
+                "gradle.lockfile",
+                "gradle/dependency-locks/compileClasspath.lockfile",
+                "gradle/wrapper/gradle-wrapper.properties",
+            ],
+        },
+        LockfileRule {
             manifests: &["composer.json"],
             lockfiles: &["composer.lock"],
         },
@@ -449,12 +478,30 @@ fn manifest_lockfile_rules() -> Vec<LockfileRule> {
             lockfiles: &["Package.resolved"],
         },
         LockfileRule {
-            manifests: &["packages.config", "Directory.Packages.props"],
+            manifests: &[
+                "packages.config",
+                "Directory.Packages.props",
+                "Directory.Build.props",
+                "Directory.Build.targets",
+                ".csproj",
+                ".fsproj",
+                ".vbproj",
+            ],
             lockfiles: &["packages.lock.json"],
         },
         LockfileRule {
-            manifests: &["main.tf", "providers.tf", "versions.tf"],
-            lockfiles: &[".terraform.lock.hcl"],
+            manifests: &["main.tf", "providers.tf", "versions.tf", ".tf", ".tofu"],
+            lockfiles: &[".terraform.lock.hcl", "tofu.lock.hcl"],
+        },
+        LockfileRule {
+            manifests: &[
+                "vcpkg.json",
+                "conanfile.txt",
+                "conanfile.py",
+                "CMakeLists.txt",
+                "MODULE.bazel",
+            ],
+            lockfiles: &["vcpkg-lock.json", "conan.lock", "MODULE.bazel.lock"],
         },
     ]
 }
@@ -570,17 +617,43 @@ fn is_build_or_task_path(path: &str) -> bool {
             | "pom.xml"
             | "build.gradle"
             | "build.gradle.kts"
+            | "settings.gradle"
+            | "settings.gradle.kts"
+            | "gradle.properties"
+            | "libs.versions.toml"
             | "composer.json"
             | "gemfile"
             | "rakefile"
             | "cmakelists.txt"
             | "makefile"
+            | "makefile.am"
+            | "configure.ac"
+            | "configure.in"
             | "meson.build"
+            | "build.zig"
+            | "xmake.lua"
+            | "sconstruct"
+            | "workspace"
+            | "workspace.bazel"
+            | "build.bazel"
             | "package.swift"
             | "global.json"
             | "directory.build.props"
+            | "directory.build.targets"
             | "directory.packages.props"
-    )
+            | "packages.config"
+            | "main.tf"
+            | "providers.tf"
+            | "versions.tf"
+            | "terragrunt.hcl"
+    ) || lower.ends_with(".csproj")
+        || lower.ends_with(".fsproj")
+        || lower.ends_with(".vbproj")
+        || lower.ends_with(".sln")
+        || lower.ends_with(".slnx")
+        || lower.ends_with(".slnf")
+        || lower.ends_with(".tf")
+        || lower.ends_with(".tofu")
 }
 
 fn check_generated_artifact_additions(changes: &[ChangedFile]) -> Check {
@@ -749,13 +822,23 @@ fn check_agent_profile_verification(contents: &str, profiles: &[Profile]) -> Che
 fn profile_verification_terms(profile: Profile) -> &'static [&'static str] {
     match profile {
         Profile::Rust => &["cargo test", "cargo clippy"],
-        Profile::Node | Profile::Frontend => {
-            &["npm test", "pnpm test", "yarn test", "npm run build"]
-        }
-        Profile::Python => &["pytest", "python -m pytest"],
-        Profile::Go => &["go test"],
+        Profile::Node | Profile::Frontend => &[
+            "npm test",
+            "pnpm test",
+            "yarn test",
+            "bun test",
+            "npm run build",
+            "pnpm build",
+        ],
+        Profile::Python => &["pytest", "python -m pytest", "nox", "tox", "uv run"],
+        Profile::Go => &["go test", "golangci-lint", "staticcheck", "make test"],
         Profile::Docker => &["docker build", "hadolint"],
-        Profile::Jvm | Profile::Kotlin => &["mvn test", "gradle test", "./gradlew test"],
+        Profile::Jvm | Profile::Kotlin => &[
+            "mvn test",
+            "gradle test",
+            "./gradlew test",
+            "./gradlew check",
+        ],
         Profile::Deno => &["deno test", "deno task"],
         Profile::Bun => &["bun test"],
         Profile::Dotnet => &["dotnet test"],

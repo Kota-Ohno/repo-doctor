@@ -60,6 +60,39 @@ repo-doctor check --profile go --format summary
 repo-doctor ci --template go > .github/workflows/repo-doctor.yml
 ```
 
+## Other Ecosystems / その他のecosystem
+
+```bash
+repo-doctor check --profile deno --format summary
+repo-doctor check --profile bun --format summary
+repo-doctor check --profile jvm --format summary
+repo-doctor check --profile dotnet --format summary
+repo-doctor check --profile php --format summary
+repo-doctor check --profile ruby --format summary
+repo-doctor check --profile swift --format summary
+repo-doctor check --profile cpp --format summary
+repo-doctor check --profile iac --format summary
+repo-doctor check --profile docs --format summary
+```
+
+Generate starter CI with the matching template:
+
+対応するtemplateでstarter CIを生成できます。
+
+```bash
+repo-doctor ci --template deno
+repo-doctor ci --template bun
+repo-doctor ci --template jvm
+repo-doctor ci --template dotnet
+repo-doctor ci --template php
+repo-doctor ci --template ruby
+repo-doctor ci --template swift
+repo-doctor ci --template cpp
+repo-doctor ci --template docker
+repo-doctor ci --template iac
+repo-doctor ci --template docs
+```
+
 ## Dockerized App
 
 ```bash
@@ -70,6 +103,23 @@ docker run --rm -v "$PWD:/repo" ghcr.io/kota-ohno/repo-doctor:main check /repo
 ## Gradual Adoption / 段階導入
 
 ```bash
+repo-doctor preflight
 repo-doctor baseline > repo-doctor-baseline.json
 repo-doctor check --baseline repo-doctor-baseline.json --fail-on warn
+```
+
+## Warning Triage / warningの切り分け
+
+If a warning is expected for the project shape, prefer a preset or a documented
+rule disable over ignoring it silently:
+
+project形状としてwarningが想定通りの場合は、黙って無視せずpresetまたは理由付きrule disableを使います。
+
+```toml
+presets = ["python-lib"]
+
+[[rules]]
+id = "python_lockfile"
+disabled = true
+reason = "Library package intentionally does not commit a lockfile."
 ```

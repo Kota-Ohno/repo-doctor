@@ -11,6 +11,7 @@ Try it locally without writing files:
 ファイルを書き込まずにローカルで試す:
 
 ```bash
+repo-doctor preflight
 repo-doctor suggest
 repo-doctor check --format compact
 repo-doctor check --format summary
@@ -67,6 +68,13 @@ mkdir -p .github/workflows
 repo-doctor ci --template generic > .github/workflows/repo-doctor.yml
 repo-doctor ci --guard > .github/workflows/repo-doctor-guard.yml
 ```
+
+Ecosystem templates are available for `rust`, `node`, `python`, `go`, `deno`,
+`bun`, `jvm`, `dotnet`, `php`, `ruby`, `swift`, `cpp`, `docker`, `iac`, and
+`docs`.
+
+ecosystem別templateとして `rust`, `node`, `python`, `go`, `deno`, `bun`,
+`jvm`, `dotnet`, `php`, `ruby`, `swift`, `cpp`, `docker`, `iac`, `docs` を利用できます。
 
 Adopt gradually in an existing repository:
 

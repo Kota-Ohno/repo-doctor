@@ -70,6 +70,7 @@ Try without creating files:
 ファイルを作らずに試す:
 
 ```bash
+repo-doctor preflight
 repo-doctor suggest
 repo-doctor init --print-config
 repo-doctor ci --template generic
@@ -145,6 +146,7 @@ repo-doctor check --profile frontend
 repo-doctor check --profile iac
 repo-doctor check --profile docs
 repo-doctor check --fail-on warn
+repo-doctor preflight --format json
 repo-doctor github Kota-Ohno/repo-doctor
 repo-doctor github Kota-Ohno/repo-doctor --warnings-only
 repo-doctor github-setup Kota-Ohno/repo-doctor --topic rust --topic cli --homepage https://github.com/Kota-Ohno/repo-doctor --branch-protection
@@ -155,6 +157,17 @@ repo-doctor spec --format json
 repo-doctor recipes --format markdown
 repo-doctor agent-guide --format markdown
 repo-doctor ci --template node
+repo-doctor ci --template deno
+repo-doctor ci --template bun
+repo-doctor ci --template jvm
+repo-doctor ci --template dotnet
+repo-doctor ci --template php
+repo-doctor ci --template ruby
+repo-doctor ci --template swift
+repo-doctor ci --template cpp
+repo-doctor ci --template docker
+repo-doctor ci --template iac
+repo-doctor ci --template docs
 repo-doctor ci --guard
 repo-doctor explain readme
 repo-doctor config-validate repo-doctor.toml

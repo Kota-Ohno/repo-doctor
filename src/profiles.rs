@@ -115,7 +115,7 @@ fn detect(path: &Path) -> Vec<Profile> {
     {
         profiles.push(Profile::Python);
     }
-    if path.join("go.mod").exists() {
+    if find_file(path, &["go.mod"]).is_some() {
         profiles.push(Profile::Go);
     }
     if has_container_files(path) {
@@ -176,15 +176,17 @@ fn has_container_files(path: &Path) -> bool {
 }
 
 fn has_jvm_files(path: &Path) -> bool {
-    [
-        "pom.xml",
-        "build.gradle",
-        "build.gradle.kts",
-        "settings.gradle",
-        "settings.gradle.kts",
-    ]
-    .iter()
-    .any(|candidate| path.join(candidate).exists())
+    find_file(
+        path,
+        &[
+            "pom.xml",
+            "build.gradle",
+            "build.gradle.kts",
+            "settings.gradle",
+            "settings.gradle.kts",
+        ],
+    )
+    .is_some()
 }
 
 fn has_deno_files(path: &Path) -> bool {
@@ -201,44 +203,73 @@ fn has_bun_files(path: &Path) -> bool {
 }
 
 fn has_dotnet_files(path: &Path) -> bool {
-    ["Directory.Build.props", "global.json"]
-        .iter()
-        .any(|candidate| path.join(candidate).exists())
-        || root_has_extension(path, "sln")
-        || root_has_extension(path, "csproj")
-        || root_has_extension(path, "fsproj")
-        || root_has_extension(path, "vbproj")
+    find_file(
+        path,
+        &[
+            "Directory.Build.props",
+            "Directory.Build.targets",
+            "global.json",
+        ],
+    )
+    .is_some()
+        || recursive_has_extension(path, "sln")
+        || recursive_has_extension(path, "slnx")
+        || recursive_has_extension(path, "slnf")
+        || recursive_has_extension(path, "csproj")
+        || recursive_has_extension(path, "fsproj")
+        || recursive_has_extension(path, "vbproj")
 }
 
 fn has_php_files(path: &Path) -> bool {
-    path.join("composer.json").exists() || path.join("composer.lock").exists()
+    find_file(path, &["composer.json", "composer.lock"]).is_some()
 }
 
 fn has_ruby_files(path: &Path) -> bool {
-    path.join("Gemfile").exists()
-        || path.join("Gemfile.lock").exists()
-        || root_has_extension(path, "gemspec")
+    find_file(path, &["Gemfile", "Gemfile.lock", "config/application.rb"]).is_some()
+        || recursive_has_extension(path, "gemspec")
 }
 
 fn has_cpp_files(path: &Path) -> bool {
-    ["CMakeLists.txt", "Makefile", "meson.build", "configure.ac"]
-        .iter()
-        .any(|candidate| path.join(candidate).exists())
+    find_file(
+        path,
+        &[
+            "CMakeLists.txt",
+            "Makefile",
+            "meson.build",
+            "configure.ac",
+            "configure.in",
+            "build.zig",
+            "xmake.lua",
+            "SConstruct",
+            "WORKSPACE",
+            "WORKSPACE.bazel",
+            "BUILD",
+            "BUILD.bazel",
+        ],
+    )
+    .is_some()
         || ["c", "cc", "cpp", "cxx", "h", "hpp"]
             .iter()
-            .any(|extension| root_has_extension(path, extension))
+            .any(|extension| recursive_has_extension(path, extension))
 }
 
 fn has_swift_files(path: &Path) -> bool {
-    path.join("Package.swift").exists() || path.join("Package.resolved").exists()
+    find_file(path, &["Package.swift", "Package.resolved"]).is_some()
 }
 
 fn has_kotlin_files(path: &Path) -> bool {
-    path.join("build.gradle.kts").exists()
-        || path.join("settings.gradle.kts").exists()
+    find_file(
+        path,
+        &[
+            "build.gradle.kts",
+            "settings.gradle.kts",
+            "gradle/libs.versions.toml",
+        ],
+    )
+    .is_some()
         || path.join("src/main/kotlin").exists()
-        || root_has_extension(path, "kt")
-        || root_has_extension(path, "kts")
+        || recursive_has_extension(path, "kt")
+        || recursive_has_extension(path, "kts")
 }
 
 fn has_frontend_files(path: &Path) -> bool {
@@ -269,20 +300,27 @@ fn has_frontend_files(path: &Path) -> bool {
         "@sveltejs/kit",
         "@remix-run/dev",
         "nuxt",
+        "@angular/core",
+        "@vue/cli-service",
+        "react-router",
+        "@tanstack/react-start",
+        "@builder.io/qwik",
+        "expo",
+        "storybook",
     ]
     .iter()
     .any(|dependency| package_has_dependency(&package, dependency))
 }
 
 fn has_iac_files(path: &Path) -> bool {
-    root_has_extension(path, "tf")
-        || root_has_extension(path, "tfvars")
-        || path.join(".terraform.lock.hcl").exists()
-        || path.join("tofu.lock.hcl").exists()
+    recursive_has_extension(path, "tf")
+        || recursive_has_extension(path, "tfvars")
+        || recursive_has_extension(path, "tofu")
+        || find_file(path, &[".terraform.lock.hcl", "tofu.lock.hcl"]).is_some()
 }
 
 fn has_docs_site_files(path: &Path) -> bool {
-    root_has_any_file(
+    find_file(
         path,
         &[
             "mkdocs.yml",
@@ -291,8 +329,12 @@ fn has_docs_site_files(path: &Path) -> bool {
             "book.toml",
             "vitepress.config.ts",
             "vitepress.config.js",
+            "conf.py",
+            "sphinx.conf",
         ],
-    ) || path.join("docs/.vitepress/config.ts").exists()
+    )
+    .is_some()
+        || path.join("docs/.vitepress/config.ts").exists()
         || path.join("docs/.vitepress/config.js").exists()
 }
 
@@ -1102,7 +1144,26 @@ fn check_legacy_python_requirements(path: &Path) -> Check {
 }
 
 fn check_python_tests(path: &Path) -> Check {
-    if path.join("tests").exists() || path.join("test").exists() {
+    if path.join("tests").exists()
+        || path.join("test").exists()
+        || recursive_has_dir(path, "tests")
+        || recursive_has_dir(path, "test")
+        || recursive_has_suffix(path, "_test.py")
+        || find_file_by(path, |name| {
+            let name = name.to_string_lossy();
+            name.starts_with("test_") && name.ends_with(".py")
+        })
+        .is_some()
+        || find_file(path, &["noxfile.py", "tox.ini", "pytest.ini"]).is_some()
+        || path.join("pyproject.toml").exists()
+            && std::fs::read_to_string(path.join("pyproject.toml"))
+                .ok()
+                .is_some_and(|contents| {
+                    contents.contains("[tool.pytest")
+                        || contents.contains("[tool.tox")
+                        || contents.contains("[tool.hatch")
+                })
+    {
         pass("python_tests", "Python test directory is present")
     } else {
         warn(
@@ -1117,8 +1178,12 @@ fn check_python_lint_format(pyproject: &toml::Value) -> Check {
     let tool = pyproject.get("tool").and_then(toml::Value::as_table);
     let has_ruff = tool.is_some_and(|tool| tool.contains_key("ruff"));
     let has_black = tool.is_some_and(|tool| tool.contains_key("black"));
+    let has_mypy = tool.is_some_and(|tool| tool.contains_key("mypy"));
+    let has_pyright = tool.is_some_and(|tool| tool.contains_key("pyright"));
+    let has_hatch = tool.is_some_and(|tool| tool.contains_key("hatch"));
+    let has_uv = tool.is_some_and(|tool| tool.contains_key("uv"));
 
-    if has_ruff || has_black {
+    if has_ruff || has_black || has_mypy || has_pyright || has_hatch || has_uv {
         pass(
             "python_lint_format",
             "Python lint or format tooling is configured",
@@ -1138,11 +1203,17 @@ fn check_python_pytest_config(path: &Path, pyproject: &toml::Value) -> Check {
         .get("tool")
         .and_then(|tool| tool.get("pytest"))
         .is_some();
+    let project_mentions_pytest = toml_contains_string(pyproject, "pytest");
 
     if has_pytest_ini || has_pytest_pyproject {
         pass(
             "python_pytest_config",
             "Python pytest configuration is present",
+        )
+    } else if !project_mentions_pytest {
+        pass(
+            "python_pytest_config",
+            "pytest configuration check is not applicable",
         )
     } else {
         warn(
@@ -1198,7 +1269,9 @@ fn check_python_lockfile(path: &Path) -> Check {
 }
 
 fn inspect_go(path: &Path) -> Vec<Check> {
-    let go_mod = match std::fs::read_to_string(path.join("go.mod")) {
+    let go_mod_path = find_file(path, &["go.mod"]).unwrap_or_else(|| path.join("go.mod"));
+    let project_path = go_mod_path.parent().unwrap_or(path);
+    let go_mod = match std::fs::read_to_string(&go_mod_path) {
         Ok(contents) => contents,
         Err(_) => {
             return vec![warn(
@@ -1212,7 +1285,7 @@ fn inspect_go(path: &Path) -> Vec<Check> {
     vec![
         check_go_module(&go_mod),
         check_go_version(&go_mod),
-        check_go_sum(path, &go_mod),
+        check_go_sum(project_path, &go_mod),
         check_go_ci_commands(path),
     ]
 }
@@ -1280,9 +1353,26 @@ fn check_go_ci_commands(path: &Path) -> Check {
         );
     }
 
-    let has_test = workflows.contains("go test");
-    let has_vet = workflows.contains("go vet");
-    let has_fmt = workflows.contains("gofmt") || workflows.contains("go fmt");
+    let has_make_or_task = workflows.contains("make ")
+        || workflows.contains("task ")
+        || workflows.contains("mage")
+        || workflows.contains("mise run");
+    let has_test = workflows.contains("go test")
+        || workflows.contains("make test")
+        || workflows.contains("task test")
+        || has_make_or_task && workflows.contains("test");
+    let has_vet = workflows.contains("go vet")
+        || workflows.contains("golangci-lint")
+        || workflows.contains("staticcheck")
+        || workflows.contains("make vet")
+        || workflows.contains("make lint")
+        || workflows.contains("task lint");
+    let has_fmt = workflows.contains("gofmt")
+        || workflows.contains("go fmt")
+        || workflows.contains("gofumpt")
+        || workflows.contains("golangci-lint")
+        || workflows.contains("make fmt")
+        || workflows.contains("task fmt");
 
     if has_test && has_vet && has_fmt {
         pass(
@@ -1346,6 +1436,8 @@ fn check_compose_file(path: &Path) -> Check {
         .any(|candidate| path.join(candidate).exists())
     {
         pass("docker_compose", "Compose file is present")
+    } else if !container_looks_like_service(path) {
+        pass("docker_compose", "Compose check is not applicable")
     } else {
         warn(
             "docker_compose",
@@ -1400,6 +1492,13 @@ fn check_dockerfile_healthcheck(path: &Path) -> Check {
         return empty_check();
     };
 
+    if !container_contents_look_like_service(&contents) {
+        return pass(
+            "docker_healthcheck",
+            "Container HEALTHCHECK is not applicable",
+        );
+    }
+
     if contents.lines().any(|line| {
         line.trim_start()
             .to_ascii_uppercase()
@@ -1413,6 +1512,17 @@ fn check_dockerfile_healthcheck(path: &Path) -> Check {
             "Add a HEALTHCHECK when the image runs a long-lived service.",
         )
     }
+}
+
+fn container_looks_like_service(path: &Path) -> bool {
+    read_container_build_file(path)
+        .as_deref()
+        .is_some_and(container_contents_look_like_service)
+}
+
+fn container_contents_look_like_service(contents: &str) -> bool {
+    let upper = contents.to_ascii_uppercase();
+    upper.contains("\nEXPOSE ") || upper.contains("\nCMD ") || upper.contains("\nENTRYPOINT ")
 }
 
 fn check_dockerfile_user(path: &Path) -> Check {
@@ -1587,10 +1697,12 @@ fn inspect_dotnet(path: &Path) -> Vec<Check> {
 }
 
 fn check_dotnet_project_or_solution(path: &Path) -> Check {
-    if root_has_extension(path, "sln")
-        || root_has_extension(path, "csproj")
-        || root_has_extension(path, "fsproj")
-        || root_has_extension(path, "vbproj")
+    if recursive_has_extension(path, "sln")
+        || recursive_has_extension(path, "slnx")
+        || recursive_has_extension(path, "slnf")
+        || recursive_has_extension(path, "csproj")
+        || recursive_has_extension(path, "fsproj")
+        || recursive_has_extension(path, "vbproj")
     {
         pass("dotnet_project", ".NET solution or project file is present")
     } else {
@@ -1618,12 +1730,18 @@ fn check_dotnet_global_json(path: &Path) -> Check {
 }
 
 fn check_dotnet_test_project(path: &Path) -> Check {
-    let has_test_project = root_file_names(path).iter().any(|name| {
+    let has_test_project = find_file_by(path, |name| {
+        let name = name.to_string_lossy();
         name.ends_with("Tests.csproj")
             || name.ends_with(".Tests.csproj")
             || name.ends_with("Test.csproj")
             || name.ends_with(".Test.csproj")
-    });
+            || name.ends_with("Tests.fsproj")
+            || name.ends_with(".Tests.fsproj")
+            || name.ends_with("Tests.vbproj")
+            || name.ends_with(".Tests.vbproj")
+    })
+    .is_some();
 
     if has_test_project {
         pass("dotnet_tests", ".NET test project is present")
@@ -1637,7 +1755,10 @@ fn check_dotnet_test_project(path: &Path) -> Check {
 }
 
 fn inspect_php(path: &Path) -> Vec<Check> {
-    let composer = match read_json(path.join("composer.json")) {
+    let composer_path =
+        find_file(path, &["composer.json"]).unwrap_or_else(|| path.join("composer.json"));
+    let project_path = composer_path.parent().unwrap_or(path);
+    let composer = match read_json(&composer_path) {
         Some(value) => value,
         None => {
             return vec![warn(
@@ -1653,16 +1774,19 @@ fn inspect_php(path: &Path) -> Vec<Check> {
         check_json_string(&composer, "php_description", "description", "composer.json"),
         check_json_present(&composer, "php_license", "license", "composer.json"),
         check_json_present(&composer, "php_require", "require", "composer.json"),
-        check_php_test_script(&composer),
-        check_php_lockfile(path),
+        check_php_test_script(project_path, &composer),
+        check_php_lockfile(project_path, &composer),
     ]
 }
 
-fn check_php_test_script(composer: &JsonValue) -> Check {
+fn check_php_test_script(path: &Path, composer: &JsonValue) -> Check {
     if composer
         .get("scripts")
         .and_then(|scripts| scripts.get("test"))
         .is_some()
+        || path.join("phpunit.xml").exists()
+        || path.join("phpunit.xml.dist").exists()
+        || path.join("pest.php").exists()
     {
         pass("php_test_script", "composer.json scripts.test is set")
     } else {
@@ -1674,9 +1798,14 @@ fn check_php_test_script(composer: &JsonValue) -> Check {
     }
 }
 
-fn check_php_lockfile(path: &Path) -> Check {
+fn check_php_lockfile(path: &Path, composer: &JsonValue) -> Check {
     if path.join("composer.lock").exists() {
         pass("php_composer_lock", "composer.lock is present")
+    } else if php_looks_like_package(composer) {
+        pass(
+            "php_composer_lock",
+            "composer.lock check is not applicable for packages",
+        )
     } else {
         warn(
             "php_composer_lock",
@@ -1684,6 +1813,27 @@ fn check_php_lockfile(path: &Path) -> Check {
             "Run composer install or composer update and commit composer.lock for applications.",
         )
     }
+}
+
+fn php_looks_like_package(composer: &JsonValue) -> bool {
+    composer
+        .get("type")
+        .and_then(JsonValue::as_str)
+        .is_some_and(|kind| {
+            matches!(
+                kind,
+                "library" | "composer-plugin" | "project-template" | "symfony-bundle"
+            )
+        })
+        || composer.get("require").is_none_or(|requirements| {
+            ![
+                "laravel/framework",
+                "symfony/framework-bundle",
+                "cakephp/cakephp",
+            ]
+            .iter()
+            .any(|dependency| requirements.get(dependency).is_some())
+        })
 }
 
 fn inspect_ruby(path: &Path) -> Vec<Check> {
@@ -1695,7 +1845,7 @@ fn inspect_ruby(path: &Path) -> Vec<Check> {
 }
 
 fn check_ruby_gemfile(path: &Path) -> Check {
-    if path.join("Gemfile").exists() {
+    if find_file(path, &["Gemfile"]).is_some() {
         pass("ruby_gemfile", "Gemfile is present")
     } else {
         warn("ruby_gemfile", "Gemfile is missing", "Add a Gemfile.")
@@ -1703,8 +1853,13 @@ fn check_ruby_gemfile(path: &Path) -> Check {
 }
 
 fn check_ruby_lockfile(path: &Path) -> Check {
-    if path.join("Gemfile.lock").exists() {
+    if find_file(path, &["Gemfile.lock"]).is_some() {
         pass("ruby_gemfile_lock", "Gemfile.lock is present")
+    } else if recursive_has_extension(path, "gemspec") && !ruby_looks_like_rails(path) {
+        pass(
+            "ruby_gemfile_lock",
+            "Gemfile.lock check is not applicable for gems",
+        )
     } else {
         warn(
             "ruby_gemfile_lock",
@@ -1715,8 +1870,13 @@ fn check_ruby_lockfile(path: &Path) -> Check {
 }
 
 fn check_ruby_gemspec(path: &Path) -> Check {
-    if root_has_extension(path, "gemspec") {
+    if recursive_has_extension(path, "gemspec") {
         pass("ruby_gemspec", "Ruby gemspec is present")
+    } else if ruby_looks_like_rails(path) {
+        pass(
+            "ruby_gemspec",
+            "Ruby gemspec check is not applicable for Rails apps",
+        )
     } else {
         warn(
             "ruby_gemspec",
@@ -1724,6 +1884,13 @@ fn check_ruby_gemspec(path: &Path) -> Check {
             "Add a .gemspec file for libraries, or ignore this warning for applications.",
         )
     }
+}
+
+fn ruby_looks_like_rails(path: &Path) -> bool {
+    path.join("config/application.rb").exists()
+        || std::fs::read_to_string(path.join("Gemfile"))
+            .ok()
+            .is_some_and(|contents| contents.contains("rails"))
 }
 
 fn inspect_cpp(path: &Path) -> Vec<Check> {
@@ -1735,12 +1902,22 @@ fn inspect_cpp(path: &Path) -> Vec<Check> {
 }
 
 fn check_cpp_build_system(path: &Path) -> Check {
-    let candidates = ["CMakeLists.txt", "Makefile", "meson.build", "configure.ac"];
+    let candidates = [
+        "CMakeLists.txt",
+        "Makefile",
+        "meson.build",
+        "configure.ac",
+        "configure.in",
+        "build.zig",
+        "xmake.lua",
+        "SConstruct",
+        "WORKSPACE",
+        "WORKSPACE.bazel",
+        "BUILD",
+        "BUILD.bazel",
+    ];
 
-    if candidates
-        .iter()
-        .any(|candidate| path.join(candidate).exists())
-    {
+    if find_file(path, &candidates).is_some() {
         pass("cpp_build_system", "C/C++ build system file is present")
     } else {
         warn(
@@ -1755,6 +1932,15 @@ fn check_cpp_compile_commands(path: &Path) -> Check {
     if path.join("compile_commands.json").exists()
         || path.join("CMakePresets.json").exists()
         || path.join("CMakeUserPresets.json").exists()
+        || find_file(
+            path,
+            &[
+                "compile_commands.json",
+                "CMakePresets.json",
+                "compile_flags.txt",
+            ],
+        )
+        .is_some()
     {
         pass("cpp_tooling_metadata", "C/C++ tooling metadata is present")
     } else {
@@ -1770,6 +1956,19 @@ fn check_cpp_dependency_manifest(path: &Path) -> Check {
     if path.join("vcpkg.json").exists()
         || path.join("conanfile.txt").exists()
         || path.join("conanfile.py").exists()
+        || find_file(
+            path,
+            &[
+                "vcpkg.json",
+                "conanfile.txt",
+                "conanfile.py",
+                "conan.lock",
+                "CPM.cmake",
+                "MODULE.bazel",
+            ],
+        )
+        .is_some()
+        || recursive_file_contains(path, "CMakeLists.txt", "FetchContent")
     {
         pass(
             "cpp_dependency_manifest",
@@ -1793,7 +1992,7 @@ fn inspect_swift(path: &Path) -> Vec<Check> {
 }
 
 fn check_swift_package(path: &Path) -> Check {
-    if path.join("Package.swift").exists() {
+    if find_file(path, &["Package.swift"]).is_some() {
         pass("swift_package", "Swift Package.swift is present")
     } else {
         warn(
@@ -1805,10 +2004,15 @@ fn check_swift_package(path: &Path) -> Check {
 }
 
 fn check_swift_package_resolved(path: &Path) -> Check {
-    if path.join("Package.resolved").exists() {
+    if find_file(path, &["Package.resolved"]).is_some() {
         pass(
             "swift_package_resolved",
             "Swift Package.resolved is present",
+        )
+    } else if !swift_package_mentions_dependencies(path) {
+        pass(
+            "swift_package_resolved",
+            "Package.resolved check is not applicable",
         )
     } else {
         warn(
@@ -1820,8 +2024,10 @@ fn check_swift_package_resolved(path: &Path) -> Check {
 }
 
 fn check_swift_tests(path: &Path) -> Check {
-    if path.join("Tests").exists() {
+    if recursive_has_dir(path, "Tests") {
         pass("swift_tests", "Swift Tests directory is present")
+    } else if !swift_package_mentions_library(path) {
+        pass("swift_tests", "Swift Tests check is not applicable")
     } else {
         warn(
             "swift_tests",
@@ -1831,11 +2037,22 @@ fn check_swift_tests(path: &Path) -> Check {
     }
 }
 
+fn swift_package_mentions_dependencies(path: &Path) -> bool {
+    find_file(path, &["Package.swift"])
+        .and_then(|package| std::fs::read_to_string(package).ok())
+        .is_some_and(|contents| {
+            contents.contains("dependencies:") && contents.contains(".package(")
+        })
+}
+
+fn swift_package_mentions_library(path: &Path) -> bool {
+    find_file(path, &["Package.swift"])
+        .and_then(|package| std::fs::read_to_string(package).ok())
+        .is_none_or(|contents| contents.contains(".library("))
+}
+
 fn inspect_kotlin(path: &Path) -> Vec<Check> {
-    let build_file = ["build.gradle.kts", "build.gradle"]
-        .iter()
-        .map(|candidate| path.join(candidate))
-        .find(|candidate| candidate.exists());
+    let build_file = find_file(path, &["build.gradle.kts", "build.gradle"]);
 
     vec![
         check_kotlin_build_file(build_file.as_deref()),
@@ -1875,6 +2092,8 @@ fn check_kotlin_plugin(build_file: Option<&Path>) -> Check {
     if contents.contains("org.jetbrains.kotlin")
         || contents.contains("kotlin(\"")
         || contents.contains("kotlin(")
+        || contents.contains("com.android.application")
+        || contents.contains("com.android.library")
     {
         pass("kotlin_plugin", "Kotlin Gradle plugin is configured")
     } else {
@@ -1889,8 +2108,12 @@ fn check_kotlin_plugin(build_file: Option<&Path>) -> Check {
 fn check_kotlin_sources(path: &Path) -> Check {
     if path.join("src/main/kotlin").exists()
         || path.join("src/test/kotlin").exists()
-        || root_has_extension(path, "kt")
-        || root_has_extension(path, "kts")
+        || recursive_has_dir(path, "src/commonMain/kotlin")
+        || recursive_has_dir(path, "src/jvmMain/kotlin")
+        || recursive_has_dir(path, "src/androidMain/kotlin")
+        || recursive_has_dir(path, "src/main/kotlin")
+        || recursive_has_extension(path, "kt")
+        || recursive_has_extension(path, "kts")
     {
         pass("kotlin_sources", "Kotlin source path is present")
     } else {
@@ -1931,6 +2154,77 @@ fn root_has_any_file(path: &Path, candidates: &[&str]) -> bool {
         .any(|candidate| path.join(candidate).exists())
 }
 
+fn find_file(path: &Path, candidates: &[&str]) -> Option<std::path::PathBuf> {
+    candidates
+        .iter()
+        .map(|candidate| path.join(candidate))
+        .find(|candidate| candidate.exists())
+        .or_else(|| {
+            find_file_by(path, |name| {
+                candidates
+                    .iter()
+                    .filter_map(|candidate| Path::new(candidate).file_name())
+                    .any(|candidate| candidate == name)
+            })
+        })
+}
+
+fn find_file_by(
+    path: &Path,
+    predicate: impl Fn(&std::ffi::OsStr) -> bool + Copy,
+) -> Option<std::path::PathBuf> {
+    let Ok(entries) = path.read_dir() else {
+        return None;
+    };
+
+    for entry in entries.filter_map(Result::ok) {
+        let entry_path = entry.path();
+        let file_name = entry.file_name();
+        if should_skip_recursive_entry(&file_name) {
+            continue;
+        }
+        if entry_path.is_file() && predicate(&file_name) {
+            return Some(entry_path);
+        }
+        if entry_path.is_dir()
+            && let Some(found) = find_file_by(&entry_path, predicate)
+        {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
+fn recursive_has_dir(path: &Path, needle: &str) -> bool {
+    if path.join(needle).is_dir() {
+        return true;
+    }
+
+    let Ok(entries) = path.read_dir() else {
+        return false;
+    };
+
+    entries.filter_map(Result::ok).any(|entry| {
+        let entry_path = entry.path();
+        let file_name = entry.file_name();
+        if should_skip_recursive_entry(&file_name) || !entry_path.is_dir() {
+            return false;
+        }
+        recursive_has_dir(&entry_path, needle)
+    })
+}
+
+fn recursive_has_suffix(path: &Path, suffix: &str) -> bool {
+    find_file_by(path, |name| name.to_string_lossy().ends_with(suffix)).is_some()
+}
+
+fn recursive_file_contains(path: &Path, file_name: &str, needle: &str) -> bool {
+    find_file_by(path, |name| name == file_name)
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .is_some_and(|contents| contents.contains(needle))
+}
+
 fn recursive_has_extension(path: &Path, extension: &str) -> bool {
     let Ok(entries) = path.read_dir() else {
         return false;
@@ -1938,10 +2232,8 @@ fn recursive_has_extension(path: &Path, extension: &str) -> bool {
 
     entries.filter_map(Result::ok).any(|entry| {
         let entry_path = entry.path();
-        if entry_path
-            .file_name()
-            .is_some_and(|name| name == "target" || name == "node_modules" || name == ".git")
-        {
+        let file_name = entry.file_name();
+        if should_skip_recursive_entry(&file_name) {
             return false;
         }
         if entry_path.is_dir() {
@@ -1952,6 +2244,36 @@ fn recursive_has_extension(path: &Path, extension: &str) -> bool {
                 .is_some_and(|candidate| candidate == extension)
         }
     })
+}
+
+fn should_skip_recursive_entry(name: &std::ffi::OsStr) -> bool {
+    matches!(
+        name.to_string_lossy().as_ref(),
+        ".git"
+            | "target"
+            | "node_modules"
+            | "vendor"
+            | ".venv"
+            | "venv"
+            | "__pycache__"
+            | ".terraform"
+            | ".gradle"
+            | "build"
+            | "dist"
+    )
+}
+
+fn toml_contains_string(value: &toml::Value, needle: &str) -> bool {
+    match value {
+        toml::Value::String(value) => value.contains(needle),
+        toml::Value::Array(values) => values
+            .iter()
+            .any(|value| toml_contains_string(value, needle)),
+        toml::Value::Table(values) => values
+            .values()
+            .any(|value| toml_contains_string(value, needle)),
+        _ => false,
+    }
 }
 
 fn workflow_contents(path: &Path) -> String {
@@ -1992,30 +2314,11 @@ fn package_manager_starts_with(path: &Path, prefix: &str) -> bool {
         .is_some_and(|package_manager| package_manager.starts_with(prefix))
 }
 
-fn root_has_extension(path: &Path, extension: &str) -> bool {
-    root_file_names(path).iter().any(|name| {
-        Path::new(name)
-            .extension()
-            .is_some_and(|candidate| candidate == extension)
-    })
-}
-
-fn root_file_names(path: &Path) -> Vec<String> {
-    let Ok(entries) = path.read_dir() else {
-        return Vec::new();
-    };
-
-    entries
-        .filter_map(Result::ok)
-        .filter_map(|entry| entry.file_name().into_string().ok())
-        .collect()
-}
-
 fn inspect_jvm(path: &Path) -> Vec<Check> {
-    let has_maven = path.join("pom.xml").exists();
-    let has_gradle = ["build.gradle", "build.gradle.kts"]
-        .iter()
-        .any(|candidate| path.join(candidate).exists());
+    let maven_path = find_file(path, &["pom.xml"]);
+    let gradle_path = find_file(path, &["build.gradle", "build.gradle.kts"]);
+    let has_maven = maven_path.is_some();
+    let has_gradle = gradle_path.is_some();
 
     let mut checks = vec![
         check_jvm_build_file(has_maven, has_gradle),
@@ -2023,11 +2326,11 @@ fn inspect_jvm(path: &Path) -> Vec<Check> {
         check_jvm_settings(path, has_gradle),
     ];
 
-    if has_maven {
-        checks.extend(inspect_maven(path));
+    if let Some(maven_path) = maven_path.as_deref() {
+        checks.extend(inspect_maven(maven_path));
     }
     if has_gradle {
-        checks.extend(inspect_gradle(path));
+        checks.extend(inspect_gradle(path, gradle_path.as_deref()));
     }
 
     checks
@@ -2050,6 +2353,13 @@ fn check_frontend_framework(path: &Path, package: &JsonValue) -> Check {
         "@sveltejs/kit",
         "@remix-run/dev",
         "nuxt",
+        "@angular/core",
+        "@vue/cli-service",
+        "react-router",
+        "@tanstack/react-start",
+        "@builder.io/qwik",
+        "expo",
+        "storybook",
     ];
     let dependency = frameworks
         .iter()
@@ -2065,7 +2375,7 @@ fn check_frontend_framework(path: &Path, package: &JsonValue) -> Check {
         warn(
             "frontend_framework",
             "Frontend framework metadata is missing",
-            "Add framework dependencies or config files such as vite.config.ts or next.config.js.",
+            "Add framework dependencies or config files such as vite.config.ts, next.config.js, angular.json, or app/router metadata.",
         )
     }
 }
@@ -2112,7 +2422,7 @@ fn inspect_iac(path: &Path) -> Vec<Check> {
 }
 
 fn check_iac_files(path: &Path) -> Check {
-    if root_has_extension(path, "tf") {
+    if recursive_has_extension(path, "tf") || recursive_has_extension(path, "tofu") {
         pass(
             "iac_terraform_files",
             "Terraform/OpenTofu files are present",
@@ -2127,7 +2437,7 @@ fn check_iac_files(path: &Path) -> Check {
 }
 
 fn check_iac_lockfile(path: &Path) -> Check {
-    if path.join(".terraform.lock.hcl").exists() || path.join("tofu.lock.hcl").exists() {
+    if find_file(path, &[".terraform.lock.hcl", "tofu.lock.hcl"]).is_some() {
         pass("iac_lockfile", "IaC provider lockfile is present")
     } else {
         warn(
@@ -2144,6 +2454,9 @@ fn check_iac_ci(path: &Path) -> Check {
         || workflows.contains("terraform validate")
         || workflows.contains("tofu fmt")
         || workflows.contains("tofu validate")
+        || workflows.contains("terragrunt")
+        || workflows.contains("make terraform")
+        || workflows.contains("task terraform")
     {
         pass(
             "iac_ci_validate",
@@ -2179,7 +2492,11 @@ fn check_docs_site_config(path: &Path) -> Check {
 }
 
 fn check_docs_site_dir(path: &Path) -> Check {
-    if path.join("docs").is_dir() || path.join("website").is_dir() {
+    if path.join("docs").is_dir()
+        || path.join("website").is_dir()
+        || path.join("site").is_dir()
+        || path.join("book").is_dir()
+    {
         pass(
             "docs_site_content",
             "Docs site content directory is present",
@@ -2199,6 +2516,11 @@ fn check_docs_site_ci(path: &Path) -> Check {
         || workflows.contains("docusaurus build")
         || workflows.contains("mdbook build")
         || workflows.contains("vitepress build")
+        || workflows.contains("sphinx-build")
+        || workflows.contains("nextra build")
+        || workflows.contains("starlight build")
+        || workflows.contains("npm run docs")
+        || workflows.contains("pnpm docs")
     {
         pass("docs_site_ci", "Docs site build is present in CI")
     } else {
@@ -2223,8 +2545,8 @@ fn check_jvm_build_file(has_maven: bool, has_gradle: bool) -> Check {
 }
 
 fn check_jvm_wrapper(path: &Path, has_maven: bool, has_gradle: bool) -> Check {
-    let has_maven_wrapper = path.join("mvnw").exists() || path.join("mvnw.cmd").exists();
-    let has_gradle_wrapper = path.join("gradlew").exists() || path.join("gradlew.bat").exists();
+    let has_maven_wrapper = find_file(path, &["mvnw", "mvnw.cmd"]).is_some();
+    let has_gradle_wrapper = find_file(path, &["gradlew", "gradlew.bat"]).is_some();
     let wrapper_ok = (has_maven && has_maven_wrapper) || (has_gradle && has_gradle_wrapper);
 
     if wrapper_ok {
@@ -2243,7 +2565,7 @@ fn check_jvm_settings(path: &Path, has_gradle: bool) -> Check {
         return empty_check();
     }
 
-    if path.join("settings.gradle").exists() || path.join("settings.gradle.kts").exists() {
+    if find_file(path, &["settings.gradle", "settings.gradle.kts"]).is_some() {
         pass("jvm_gradle_settings", "Gradle settings file is present")
     } else {
         warn(
@@ -2254,8 +2576,8 @@ fn check_jvm_settings(path: &Path, has_gradle: bool) -> Check {
     }
 }
 
-fn inspect_maven(path: &Path) -> Vec<Check> {
-    let pom = match std::fs::read_to_string(path.join("pom.xml")) {
+fn inspect_maven(pom_path: &Path) -> Vec<Check> {
+    let pom = match std::fs::read_to_string(pom_path) {
         Ok(contents) => contents,
         Err(_) => {
             return vec![warn(
@@ -2267,22 +2589,43 @@ fn inspect_maven(path: &Path) -> Vec<Check> {
     };
 
     vec![
-        check_xml_tag(&pom, "jvm_maven_group_id", "groupId", "Maven groupId"),
+        check_maven_group_id(&pom),
         check_xml_tag(
             &pom,
             "jvm_maven_artifact_id",
             "artifactId",
             "Maven artifactId",
         ),
-        check_xml_tag(&pom, "jvm_maven_version", "version", "Maven version"),
+        check_maven_version(&pom),
     ]
 }
 
-fn check_xml_tag(contents: &str, id: &'static str, tag: &'static str, label: &str) -> Check {
-    let open = format!("<{tag}>");
-    let close = format!("</{tag}>");
+fn check_maven_group_id(contents: &str) -> Check {
+    if xml_tag_present(contents, "groupId") || contents.contains("<parent>") {
+        pass("jvm_maven_group_id", "Maven groupId is set or inherited")
+    } else {
+        warn(
+            "jvm_maven_group_id",
+            "Maven groupId is missing",
+            "Set <groupId> in pom.xml or inherit it from a parent POM.",
+        )
+    }
+}
 
-    if contents.contains(&open) && contents.contains(&close) {
+fn check_maven_version(contents: &str) -> Check {
+    if xml_tag_present(contents, "version") || contents.contains("<parent>") {
+        pass("jvm_maven_version", "Maven version is set or inherited")
+    } else {
+        warn(
+            "jvm_maven_version",
+            "Maven version is missing",
+            "Set <version> in pom.xml or inherit it from a parent POM.",
+        )
+    }
+}
+
+fn check_xml_tag(contents: &str, id: &'static str, tag: &'static str, label: &str) -> Check {
+    if xml_tag_present(contents, tag) {
         pass(id, format!("{label} is set"))
     } else {
         warn(
@@ -2293,11 +2636,14 @@ fn check_xml_tag(contents: &str, id: &'static str, tag: &'static str, label: &st
     }
 }
 
-fn inspect_gradle(path: &Path) -> Vec<Check> {
-    let build_file = ["build.gradle", "build.gradle.kts"]
-        .iter()
-        .map(|candidate| path.join(candidate))
-        .find(|candidate| candidate.exists());
+fn xml_tag_present(contents: &str, tag: &str) -> bool {
+    let open = format!("<{tag}>");
+    let close = format!("</{tag}>");
+
+    contents.contains(&open) && contents.contains(&close)
+}
+
+fn inspect_gradle(path: &Path, build_file: Option<&Path>) -> Vec<Check> {
     let Some(build_file) = build_file else {
         return Vec::new();
     };
@@ -2314,14 +2660,20 @@ fn inspect_gradle(path: &Path) -> Vec<Check> {
     };
 
     vec![
-        check_gradle_has_group(&contents),
-        check_gradle_has_version(&contents),
+        check_gradle_has_group(path, &contents),
+        check_gradle_has_version(path, &contents),
         check_gradle_test_task(&contents),
     ]
 }
 
-fn check_gradle_has_group(contents: &str) -> Check {
-    if contents.contains("group =") || contents.contains("group=") {
+fn check_gradle_has_group(path: &Path, contents: &str) -> Check {
+    if contents.contains("group =")
+        || contents.contains("group=")
+        || gradle_convention_files(path)
+        || std::fs::read_to_string(path.join("gradle.properties"))
+            .ok()
+            .is_some_and(|properties| properties.contains("group="))
+    {
         pass("jvm_gradle_group", "Gradle group is set")
     } else {
         warn(
@@ -2332,8 +2684,14 @@ fn check_gradle_has_group(contents: &str) -> Check {
     }
 }
 
-fn check_gradle_has_version(contents: &str) -> Check {
-    if contents.contains("version =") || contents.contains("version=") {
+fn check_gradle_has_version(path: &Path, contents: &str) -> Check {
+    if contents.contains("version =")
+        || contents.contains("version=")
+        || gradle_convention_files(path)
+        || std::fs::read_to_string(path.join("gradle.properties"))
+            .ok()
+            .is_some_and(|properties| properties.contains("version="))
+    {
         pass("jvm_gradle_version", "Gradle version is set")
     } else {
         warn(
@@ -2345,7 +2703,12 @@ fn check_gradle_has_version(contents: &str) -> Check {
 }
 
 fn check_gradle_test_task(contents: &str) -> Check {
-    if contents.contains("test {") || contents.contains("tasks.test") {
+    if contents.contains("test {")
+        || contents.contains("tasks.test")
+        || contents.contains("useJUnitPlatform")
+        || contents.contains("jvm(")
+        || contents.contains("com.android.")
+    {
         pass("jvm_gradle_test", "Gradle test task is configured")
     } else {
         warn(
@@ -2354,4 +2717,10 @@ fn check_gradle_test_task(contents: &str) -> Check {
             "Configure the test task if this project has tests.",
         )
     }
+}
+
+fn gradle_convention_files(path: &Path) -> bool {
+    path.join("buildSrc").exists()
+        || path.join("build-logic").exists()
+        || find_file(path, &["gradle/libs.versions.toml"]).is_some()
 }

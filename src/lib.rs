@@ -268,6 +268,17 @@ pub enum Command {
     /// Check gh CLI authentication for remote GitHub checks.
     GithubAuthDoctor,
 
+    /// Check local tooling needed for repo-doctor adoption.
+    Preflight {
+        /// Repository directory to inspect.
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Output format.
+        #[arg(short, long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
+    },
+
     /// Print the OpenSSF Scorecard URL for a GitHub repository.
     Scorecard {
         /// GitHub repository in owner/name form.
@@ -315,6 +326,17 @@ pub enum InitTemplate {
     Node,
     Python,
     Go,
+    Deno,
+    Bun,
+    Jvm,
+    Dotnet,
+    Php,
+    Ruby,
+    Swift,
+    Cpp,
+    Docker,
+    Iac,
+    Docs,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -441,6 +463,7 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             dry_run,
         ),
         Command::GithubAuthDoctor => github_auth_doctor(),
+        Command::Preflight { path, format } => preflight(&path, format),
         Command::Scorecard { repo } => scorecard_link(&repo),
         Command::ListProfiles => Ok(RunOutput {
             text: list_profiles(),
@@ -801,6 +824,20 @@ fn init_full_files(path: &Path, template: InitTemplate) -> Vec<InitFile> {
             "version: 2\nupdates:\n  - package-ecosystem: gomod\n    directory: /\n    schedule:\n      interval: weekly\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
             ci_workflow(InitTemplate::Go, "v0.1.1"),
         ),
+        InitTemplate::Deno
+        | InitTemplate::Bun
+        | InitTemplate::Jvm
+        | InitTemplate::Dotnet
+        | InitTemplate::Php
+        | InitTemplate::Ruby
+        | InitTemplate::Swift
+        | InitTemplate::Cpp
+        | InitTemplate::Docker
+        | InitTemplate::Iac
+        | InitTemplate::Docs => (
+            "version: 2\nupdates:\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
+            ci_workflow(template, "v0.1.1"),
+        ),
     };
 
     files.push(InitFile {
@@ -852,6 +889,39 @@ fn ci_workflow(template: InitTemplate, version: &str) -> String {
         }
         InitTemplate::Go => {
             "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-go@v6\n        with:\n          go-version: stable\n      - run: go test ./...\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Deno => {
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: denoland/setup-deno@v2\n        with:\n          deno-version: v2.x\n      - run: deno task test || deno test\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Bun => {
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile\n      - run: bun test\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Jvm => {
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-java@v5\n        with:\n          distribution: temurin\n          java-version: '21'\n      - run: ./gradlew test || mvn test\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Dotnet => {
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-dotnet@v5\n        with:\n          dotnet-version: '9.x'\n      - run: dotnet restore\n      - run: dotnet test --no-restore\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Php => {
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: shivammathur/setup-php@v2\n        with:\n          php-version: '8.3'\n          tools: composer\n      - run: composer install --no-interaction --prefer-dist\n      - run: composer test || vendor/bin/phpunit || vendor/bin/pest\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Ruby => {
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: ruby/setup-ruby@v1\n        with:\n          bundler-cache: true\n      - run: bundle exec rake test || bundle exec rspec\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Swift => {
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - run: swift test\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Cpp => {
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - run: cmake -S . -B build\n      - run: cmake --build build\n      - run: ctest --test-dir build --output-on-failure\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Docker => {
+            "name: Container CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  container:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: docker/setup-buildx-action@v3\n      - run: docker build .\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Iac => {
+            "name: IaC CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  terraform:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: hashicorp/setup-terraform@v3\n      - run: terraform fmt -check -recursive\n      - run: terraform init -backend=false\n      - run: terraform validate\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
+        }
+        InitTemplate::Docs => {
+            "name: Docs CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  docs:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-node@v6\n        with:\n          node-version: lts/*\n      - run: npm ci || true\n      - run: npm run docs:build || npm run build || mkdocs build || mdbook build\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
         }
     };
 
@@ -1163,6 +1233,114 @@ pub fn github_auth_doctor() -> Result<RunOutput> {
         text: github::auth_doctor()?,
         exit_code: 0,
     })
+}
+
+pub fn preflight(path: &Path, format: OutputFormat) -> Result<RunOutput> {
+    validate_repository_path(path)?;
+    let checks = [
+        preflight_check(
+            "repo_doctor_binary",
+            option_env!("CARGO_PKG_VERSION").is_some(),
+            "repo-doctor binary is running",
+            "Install repo-doctor or use the GitHub Action/Docker image.",
+        ),
+        preflight_check(
+            "git_worktree",
+            git_worktree_available(path),
+            "Git worktree is available",
+            "Run inside a Git repository when using guard mode.",
+        ),
+        preflight_check(
+            "gh_cli",
+            command_success("gh", &["--version"]),
+            "gh CLI is available",
+            "Install gh only for remote GitHub checks and setup.",
+        ),
+        preflight_check(
+            "gh_auth",
+            command_success("gh", &["auth", "status"]),
+            "gh authentication is available",
+            "Run gh auth login or skip remote GitHub commands.",
+        ),
+        preflight_check(
+            "docker_cli",
+            command_success("docker", &["version"]),
+            "Docker is available",
+            "Docker is optional; install/start Docker only for Docker-based usage.",
+        ),
+    ];
+    let warnings = checks.iter().filter(|check| check.status == "warn").count();
+    let exit_code = 0;
+
+    let text = if matches!(format, OutputFormat::Json) {
+        serde_json::to_string_pretty(&serde_json::json!({
+            "schema_version": 1,
+            "path": path.display().to_string(),
+            "checks": checks,
+            "summary": {
+                "pass": checks.len() - warnings,
+                "warn": warnings,
+                "total": checks.len(),
+            }
+        }))?
+    } else {
+        checks
+            .iter()
+            .map(|check| {
+                format!(
+                    "[{}] {}: {}",
+                    check.status.to_ascii_uppercase(),
+                    check.id,
+                    if check.status == "pass" {
+                        check.message
+                    } else {
+                        check.remediation
+                    }
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+
+    Ok(RunOutput { text, exit_code })
+}
+
+#[derive(serde::Serialize)]
+struct PreflightCheck {
+    id: &'static str,
+    status: &'static str,
+    message: &'static str,
+    remediation: &'static str,
+}
+
+fn preflight_check(
+    id: &'static str,
+    ok: bool,
+    message: &'static str,
+    remediation: &'static str,
+) -> PreflightCheck {
+    PreflightCheck {
+        id,
+        status: if ok { "pass" } else { "warn" },
+        message,
+        remediation,
+    }
+}
+
+fn command_success(command: &str, args: &[&str]) -> bool {
+    std::process::Command::new(command)
+        .args(args)
+        .output()
+        .is_ok_and(|output| output.status.success())
+}
+
+fn git_worktree_available(path: &Path) -> bool {
+    std::process::Command::new("git")
+        .args(["-C"])
+        .arg(path)
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .output()
+        .is_ok_and(|output| output.status.success())
 }
 
 pub fn scorecard_link(repo: &str) -> Result<RunOutput> {
@@ -1503,6 +1681,67 @@ requires = ["setuptools"]
     }
 
     #[test]
+    fn python_profile_accepts_non_pytest_tooling() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("pyproject.toml"),
+            r#"[project]
+name = "demo"
+version = "0.1.0"
+description = "Demo package"
+readme = "README.md"
+license = "MIT"
+
+[build-system]
+requires = ["hatchling"]
+
+[tool.hatch.envs.default.scripts]
+test = "python -m unittest"
+"#,
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("README.md"), "# Demo\n").unwrap();
+        fs::write(temp_dir.path().join("uv.lock"), "\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Python, None).unwrap();
+
+        assert!(output.text.contains("[PASS] python_pytest_config"));
+        assert!(output.text.contains("[PASS] python_lint_format"));
+    }
+
+    #[test]
+    fn python_lib_preset_selects_python_and_suppresses_lockfile_warning() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("repo-doctor.toml"),
+            "presets = [\"python-lib\"]\n",
+        )
+        .unwrap();
+        fs::write(
+            temp_dir.path().join("pyproject.toml"),
+            r#"[project]
+name = "demo"
+version = "0.1.0"
+description = "Demo package"
+readme = "README.md"
+license = "MIT"
+
+[build-system]
+requires = ["hatchling"]
+"#,
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("README.md"), "# Demo\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("Profiles: python"));
+        assert!(!output.text.contains("python_lockfile"));
+    }
+
+    #[test]
     fn explicit_go_profile_runs_go_checks() {
         let temp_dir = tempfile::tempdir().unwrap();
         fs::write(
@@ -1531,6 +1770,44 @@ requires = ["setuptools"]
             check_repository(temp_dir.path(), OutputFormat::Text, Profile::Go, None).unwrap();
 
         assert!(output.text.contains("[WARN] go_sum"));
+    }
+
+    #[test]
+    fn auto_profile_detects_nested_go_module() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp_dir.path().join("apps/api")).unwrap();
+        fs::write(
+            temp_dir.path().join("apps/api/go.mod"),
+            "module example.com/demo\n\ngo 1.22\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("Profiles: go"));
+        assert!(output.text.contains("[PASS] go_module"));
+    }
+
+    #[test]
+    fn go_profile_accepts_make_and_golangci_ci() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("go.mod"),
+            "module example.com/demo\n\ngo 1.22\n",
+        )
+        .unwrap();
+        fs::create_dir_all(temp_dir.path().join(".github/workflows")).unwrap();
+        fs::write(
+            temp_dir.path().join(".github/workflows/ci.yml"),
+            "steps:\n  - run: make test\n  - run: golangci-lint run\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Go, None).unwrap();
+
+        assert!(output.text.contains("[PASS] go_ci_commands"));
     }
 
     #[test]
@@ -1646,6 +1923,30 @@ requires = ["setuptools"]
     }
 
     #[test]
+    fn dotnet_profile_detects_nested_solution_layouts() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp_dir.path().join("src/Demo")).unwrap();
+        fs::create_dir_all(temp_dir.path().join("tests/Demo.Tests")).unwrap();
+        fs::write(temp_dir.path().join("Demo.slnx"), "\n").unwrap();
+        fs::write(
+            temp_dir.path().join("src/Demo/Demo.csproj"),
+            "<Project />\n",
+        )
+        .unwrap();
+        fs::write(
+            temp_dir.path().join("tests/Demo.Tests/Demo.Tests.csproj"),
+            "<Project />\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Dotnet, None).unwrap();
+
+        assert!(output.text.contains("[PASS] dotnet_project"));
+        assert!(output.text.contains("[PASS] dotnet_tests"));
+    }
+
+    #[test]
     fn explicit_php_profile_runs_php_checks() {
         let temp_dir = tempfile::tempdir().unwrap();
         fs::write(
@@ -1665,6 +1966,28 @@ requires = ["setuptools"]
             check_repository(temp_dir.path(), OutputFormat::Text, Profile::Php, None).unwrap();
 
         assert!(output.text.contains("[PASS] php_name"));
+        assert!(output.text.contains("[PASS] php_composer_lock"));
+    }
+
+    #[test]
+    fn php_package_does_not_require_composer_lock() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("composer.json"),
+            r#"{
+  "name": "example/demo",
+  "description": "Demo",
+  "license": "MIT",
+  "type": "library",
+  "require": { "php": "^8.3" },
+  "scripts": { "test": "phpunit" }
+}"#,
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Php, None).unwrap();
+
         assert!(output.text.contains("[PASS] php_composer_lock"));
     }
 
@@ -1691,6 +2014,28 @@ requires = ["setuptools"]
     }
 
     #[test]
+    fn ruby_rails_app_does_not_require_gemspec() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp_dir.path().join("config")).unwrap();
+        fs::write(
+            temp_dir.path().join("config/application.rb"),
+            "require 'rails'\n",
+        )
+        .unwrap();
+        fs::write(
+            temp_dir.path().join("Gemfile"),
+            "source 'https://rubygems.org'\ngem 'rails'\n",
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("Gemfile.lock"), "\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Ruby, None).unwrap();
+
+        assert!(output.text.contains("[PASS] ruby_gemspec"));
+    }
+
+    #[test]
     fn explicit_cpp_profile_runs_cpp_checks() {
         let temp_dir = tempfile::tempdir().unwrap();
         fs::write(temp_dir.path().join("CMakeLists.txt"), "project(demo)\n").unwrap();
@@ -1702,6 +2047,20 @@ requires = ["setuptools"]
 
         assert!(output.text.contains("[PASS] cpp_build_system"));
         assert!(output.text.contains("[PASS] cpp_tooling_metadata"));
+    }
+
+    #[test]
+    fn cpp_profile_recognizes_bazel_and_conan() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(temp_dir.path().join("WORKSPACE.bazel"), "\n").unwrap();
+        fs::write(temp_dir.path().join("compile_flags.txt"), "-std=c++20\n").unwrap();
+        fs::write(temp_dir.path().join("conanfile.py"), "\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Cpp, None).unwrap();
+
+        assert!(output.text.contains("[PASS] cpp_build_system"));
+        assert!(output.text.contains("[PASS] cpp_dependency_manifest"));
     }
 
     #[test]
@@ -1723,6 +2082,22 @@ requires = ["setuptools"]
     }
 
     #[test]
+    fn swift_profile_accepts_executable_without_dependencies() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("Package.swift"),
+            "// swift-tools-version: 6.0\nlet package = Package(name: \"Demo\", targets: [.executableTarget(name: \"Demo\")])\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Swift, None).unwrap();
+
+        assert!(output.text.contains("[PASS] swift_package_resolved"));
+        assert!(output.text.contains("[PASS] swift_tests"));
+    }
+
+    #[test]
     fn explicit_kotlin_profile_runs_kotlin_checks() {
         let temp_dir = tempfile::tempdir().unwrap();
         fs::write(
@@ -1737,6 +2112,23 @@ requires = ["setuptools"]
 
         assert!(output.text.contains("[PASS] kotlin_build_file"));
         assert!(output.text.contains("[PASS] kotlin_plugin"));
+    }
+
+    #[test]
+    fn kotlin_profile_recognizes_android_layouts() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("build.gradle.kts"),
+            "plugins { id(\"com.android.application\") version \"8.0.0\" }\n",
+        )
+        .unwrap();
+        fs::create_dir_all(temp_dir.path().join("app/src/androidMain/kotlin")).unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Kotlin, None).unwrap();
+
+        assert!(output.text.contains("[PASS] kotlin_plugin"));
+        assert!(output.text.contains("[PASS] kotlin_sources"));
     }
 
     #[test]
@@ -1986,6 +2378,50 @@ requires = ["setuptools"]
                 .text
                 .contains("[WARN] guard_generated_artifact_added")
         );
+    }
+
+    #[test]
+    fn guard_warns_on_dotnet_project_build_logic() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        init_git_repo(temp_dir.path());
+        fs::write(temp_dir.path().join("Demo.csproj"), "<Project />\n").unwrap();
+
+        let output = guard_repository_with_options(
+            temp_dir.path(),
+            OutputFormat::Text,
+            Profile::Generic,
+            None,
+            None,
+            CheckOptions::default(),
+        )
+        .unwrap();
+
+        assert!(output.text.contains("[WARN] guard_build_logic_modified"));
+        assert!(output.text.contains("Demo.csproj"));
+    }
+
+    #[test]
+    fn guard_warns_on_terraform_manifest_without_lockfile() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        init_git_repo(temp_dir.path());
+        fs::write(
+            temp_dir.path().join("providers.tf"),
+            "terraform { required_providers {} }\n",
+        )
+        .unwrap();
+
+        let output = guard_repository_with_options(
+            temp_dir.path(),
+            OutputFormat::Text,
+            Profile::Generic,
+            None,
+            None,
+            CheckOptions::default(),
+        )
+        .unwrap();
+
+        assert!(output.text.contains("[WARN] guard_lockfile_sync"));
+        assert!(output.text.contains("providers.tf"));
     }
 
     #[test]
@@ -2616,6 +3052,40 @@ disabled = true
         assert!(output.text.contains("actions/setup-go"));
         assert!(output.text.contains("Kota-Ohno/repo-doctor@v9.9.9"));
         assert!(output.text.contains("fail-on: warn"));
+    }
+
+    #[test]
+    fn ci_snippets_cover_additional_ecosystems() {
+        let cases = [
+            (InitTemplate::Deno, "denoland/setup-deno"),
+            (InitTemplate::Bun, "oven-sh/setup-bun"),
+            (InitTemplate::Jvm, "actions/setup-java"),
+            (InitTemplate::Dotnet, "actions/setup-dotnet"),
+            (InitTemplate::Php, "shivammathur/setup-php"),
+            (InitTemplate::Ruby, "ruby/setup-ruby"),
+            (InitTemplate::Cpp, "cmake -S . -B build"),
+            (InitTemplate::Docker, "docker/setup-buildx-action"),
+            (InitTemplate::Iac, "hashicorp/setup-terraform"),
+            (InitTemplate::Docs, "npm run docs:build"),
+        ];
+
+        for (template, expected) in cases {
+            let output = ci_snippet(template, "v9.9.9").unwrap();
+            assert!(output.text.contains(expected), "{expected}");
+            assert!(output.text.contains("Kota-Ohno/repo-doctor@v9.9.9"));
+        }
+    }
+
+    #[test]
+    fn preflight_json_reports_optional_tools_without_failing() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output = preflight(temp_dir.path(), OutputFormat::Json).unwrap();
+
+        assert_eq!(output.exit_code, 0);
+        assert!(output.text.contains("\"schema_version\": 1"));
+        assert!(output.text.contains("\"gh_cli\""));
+        assert!(output.text.contains("\"docker_cli\""));
     }
 
     #[test]

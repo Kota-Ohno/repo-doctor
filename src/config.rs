@@ -49,6 +49,25 @@ pub(crate) struct Config {
 enum Preset {
     RustCli,
     RustLib,
+    NodeApp,
+    NodeLib,
+    PythonApp,
+    PythonLib,
+    GoModule,
+    JvmApp,
+    JvmLib,
+    DotnetApp,
+    DotnetLib,
+    PhpApp,
+    PhpPackage,
+    RubyApp,
+    RubyGem,
+    CppApp,
+    CppLib,
+    SwiftPackage,
+    KotlinApp,
+    DockerService,
+    DockerJob,
     Oss,
     Internal,
     Strict,
@@ -140,6 +159,25 @@ impl Config {
                     .map(|preset| match preset {
                         Preset::RustCli => "rust-cli",
                         Preset::RustLib => "rust-lib",
+                        Preset::NodeApp => "node-app",
+                        Preset::NodeLib => "node-lib",
+                        Preset::PythonApp => "python-app",
+                        Preset::PythonLib => "python-lib",
+                        Preset::GoModule => "go-module",
+                        Preset::JvmApp => "jvm-app",
+                        Preset::JvmLib => "jvm-lib",
+                        Preset::DotnetApp => "dotnet-app",
+                        Preset::DotnetLib => "dotnet-lib",
+                        Preset::PhpApp => "php-app",
+                        Preset::PhpPackage => "php-package",
+                        Preset::RubyApp => "ruby-app",
+                        Preset::RubyGem => "ruby-gem",
+                        Preset::CppApp => "cpp-app",
+                        Preset::CppLib => "cpp-lib",
+                        Preset::SwiftPackage => "swift-package",
+                        Preset::KotlinApp => "kotlin-app",
+                        Preset::DockerService => "docker-service",
+                        Preset::DockerJob => "docker-job",
                         Preset::Oss => "oss",
                         Preset::Internal => "internal",
                         Preset::Strict => "strict",
@@ -194,6 +232,17 @@ impl Config {
             .iter()
             .filter_map(|preset| match preset {
                 Preset::RustCli | Preset::RustLib => Some(Profile::Rust),
+                Preset::NodeApp | Preset::NodeLib => Some(Profile::Node),
+                Preset::PythonApp | Preset::PythonLib => Some(Profile::Python),
+                Preset::GoModule => Some(Profile::Go),
+                Preset::JvmApp | Preset::JvmLib => Some(Profile::Jvm),
+                Preset::DotnetApp | Preset::DotnetLib => Some(Profile::Dotnet),
+                Preset::PhpApp | Preset::PhpPackage => Some(Profile::Php),
+                Preset::RubyApp | Preset::RubyGem => Some(Profile::Ruby),
+                Preset::CppApp | Preset::CppLib => Some(Profile::Cpp),
+                Preset::SwiftPackage => Some(Profile::Swift),
+                Preset::KotlinApp => Some(Profile::Kotlin),
+                Preset::DockerService | Preset::DockerJob => Some(Profile::Docker),
                 Preset::Oss | Preset::Internal | Preset::Strict | Preset::Vibe => None,
             })
             .collect()
@@ -207,13 +256,55 @@ impl Config {
                 Preset::RustLib => {
                     disabled.insert("rust_cargo_lock");
                 }
+                Preset::NodeLib => {
+                    disabled.insert("node_lockfile");
+                }
+                Preset::PythonLib => {
+                    disabled.insert("python_lockfile");
+                    disabled.insert("python_pytest_config");
+                }
+                Preset::JvmLib => {
+                    disabled.insert("jvm_gradle_test");
+                }
+                Preset::DotnetLib => {
+                    disabled.insert("dotnet_global_json");
+                }
+                Preset::PhpPackage => {
+                    disabled.insert("php_composer_lock");
+                }
+                Preset::RubyApp => {
+                    disabled.insert("ruby_gemspec");
+                }
+                Preset::RubyGem => {
+                    disabled.insert("ruby_gemfile_lock");
+                }
+                Preset::CppLib => {
+                    disabled.insert("cpp_dependency_manifest");
+                }
+                Preset::DockerJob => {
+                    disabled.insert("docker_healthcheck");
+                    disabled.insert("docker_compose");
+                }
                 Preset::Internal => {
                     disabled.insert("code_of_conduct");
                     disabled.insert("issue_templates");
                     disabled.insert("pull_request_template");
                     disabled.insert("changelog");
                 }
-                Preset::RustCli | Preset::Oss | Preset::Strict | Preset::Vibe => {}
+                Preset::RustCli
+                | Preset::NodeApp
+                | Preset::PythonApp
+                | Preset::GoModule
+                | Preset::JvmApp
+                | Preset::DotnetApp
+                | Preset::PhpApp
+                | Preset::CppApp
+                | Preset::SwiftPackage
+                | Preset::KotlinApp
+                | Preset::DockerService
+                | Preset::Oss
+                | Preset::Strict
+                | Preset::Vibe => {}
             }
         }
 
