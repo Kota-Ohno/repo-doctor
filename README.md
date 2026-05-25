@@ -40,6 +40,13 @@ toolchain to run it.
 
 `repo-doctor` は単体バイナリとして配布されます。利用するだけならRust toolchainは不要です。
 
+Local checks only require the `repo-doctor` binary and read access to the target
+repository. Remote GitHub checks additionally require the GitHub CLI (`gh`) and
+an authenticated token with access to the target repository. Setup commands that
+change GitHub repository settings may require repository admin permission.
+
+ローカルチェックに必要なのは `repo-doctor` binaryと対象リポジトリの読み取り権限だけです。remote GitHub checksには、追加でGitHub CLI (`gh`) と対象リポジトリへアクセスできる認証済みtokenが必要です。GitHub repository settingsを変更するsetup系コマンドはrepository admin権限を必要とする場合があります。
+
 Linux and macOS:
 
 ```bash

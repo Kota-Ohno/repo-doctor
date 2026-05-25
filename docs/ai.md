@@ -25,6 +25,25 @@ lists commands, supported profiles, rule IDs, output contracts, and recipes.
 
 `spec --format json` はagent向けの主要な機械可読contractです。commands、supported profiles、rule IDs、output contracts、recipesを列挙します。
 
+## Environment Preflight / 環境Preflight
+
+Agents should distinguish local checks from remote GitHub operations. Local
+checks need only `repo-doctor` and repository read access. Remote checks need
+`gh` and authentication. Remote setup changes may need repository admin access.
+
+agentは、local checksとremote GitHub operationsを分けて扱います。local checksに必要なのは `repo-doctor` とrepository read accessだけです。remote checksには `gh` と認証が必要です。remote setup変更にはrepository admin権限が必要な場合があります。
+
+```bash
+repo-doctor --version
+repo-doctor github-auth-doctor
+```
+
+If `github-auth-doctor` reports missing `gh`, failed authentication, or
+unavailable API access, report that as the blocker before attempting remote
+checks or setup.
+
+`github-auth-doctor` が `gh` 不在、認証失敗、API access unavailableを返す場合は、remote checksやsetupを試す前に、それをblockerとして報告します。
+
 ## Skill Usage / Skillとしての利用
 
 This repository ships a Codex-compatible skill at

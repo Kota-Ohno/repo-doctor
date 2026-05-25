@@ -156,6 +156,14 @@ pub(crate) fn setup_plan(
 
 pub(crate) fn auth_doctor() -> Result<String> {
     let mut lines = vec!["repo-doctor gh auth doctor".to_owned()];
+    if !gh_status(&["--version"]) {
+        lines.push("gh_cli=missing".to_owned());
+        lines.push("fix=install GitHub CLI from https://cli.github.com/".to_owned());
+        lines.push("fix=after installation, run `gh auth login`".to_owned());
+        return Ok(lines.join("\n"));
+    }
+    lines.push("gh_cli=ok".to_owned());
+
     if gh_status(&["auth", "status"]) {
         lines.push("gh_auth=ok".to_owned());
     } else {
@@ -174,7 +182,12 @@ pub(crate) fn auth_doctor() -> Result<String> {
             lines.push(format!("{name}=unavailable"));
         }
     }
-    lines.push("note=branch protection and security settings may require additional repository permissions".to_owned());
+    lines.push("recommended_scopes=repo for private repositories; public_repo is enough for many public read checks".to_owned());
+    lines.push(
+        "admin_scope=required for repo-doctor github-setup and some branch protection changes"
+            .to_owned(),
+    );
+    lines.push("note=branch protection and security settings may require repository admin access or organization policy access".to_owned());
     Ok(lines.join("\n"))
 }
 

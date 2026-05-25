@@ -17,6 +17,42 @@ repo-doctor check --format summary
 repo-doctor guard --fail-on warn
 ```
 
+## Requirements / 必要なもの
+
+Local checks only need the `repo-doctor` binary. A Rust toolchain is not
+required unless you are developing repo-doctor itself.
+
+ローカルチェックに必要なのは `repo-doctor` binaryだけです。repo-doctor自体を開発する場合を除き、Rust toolchainは不要です。
+
+| Use case | Required tools | Permissions |
+| --- | --- | --- |
+| Local `check`, `guard`, `suggest`, `init` | `repo-doctor` on `PATH` | Read access to the repository directory |
+| Install script on Linux/macOS | `sh`, `curl`, `tar`, `sha256sum` or `shasum` | Write access to the install directory, default `~/.local/bin` |
+| Install script on Windows | PowerShell, `Invoke-WebRequest`, `tar` | Write access to the install directory, default `$HOME\.repo-doctor\bin` |
+| Docker usage | Docker CLI/daemon | Permission to run Docker and mount the repository directory |
+| GitHub Actions | GitHub Actions enabled | Workflow permission to read repository contents |
+| Remote GitHub checks | GitHub CLI `gh` | `gh auth login`; repository read access |
+| Remote setup changes | GitHub CLI `gh` | Repository admin or equivalent permission |
+
+| 用途 | 必要なコマンド | 権限 |
+| --- | --- | --- |
+| ローカルの `check`, `guard`, `suggest`, `init` | `PATH` 上の `repo-doctor` | 対象リポジトリdirectoryの読み取り権限 |
+| Linux/macOS install script | `sh`, `curl`, `tar`, `sha256sum` または `shasum` | install先directoryへの書き込み権限。defaultは `~/.local/bin` |
+| Windows install script | PowerShell, `Invoke-WebRequest`, `tar` | install先directoryへの書き込み権限。defaultは `$HOME\.repo-doctor\bin` |
+| Docker利用 | Docker CLI/daemon | Docker実行権限とrepository directoryのmount権限 |
+| GitHub Actions | GitHub Actions有効化 | repository contentsの読み取りworkflow権限 |
+| Remote GitHub checks | GitHub CLI `gh` | `gh auth login` 済み、repository read access |
+| Remote setup変更 | GitHub CLI `gh` | repository adminまたは同等の権限 |
+
+Before remote GitHub checks, run:
+
+remote GitHub checksの前に実行します。
+
+```bash
+gh auth status
+repo-doctor github-auth-doctor
+```
+
 Add CI without hand-writing YAML:
 
 YAMLを手書きせずにCIを追加する:
@@ -91,6 +127,21 @@ Set `REPO_DOCTOR_VERSION=v0.1.1` or `REPO_DOCTOR_INSTALL_DIR=/path/to/bin` to
 customize installation.
 
 `REPO_DOCTOR_VERSION=v0.1.1` や `REPO_DOCTOR_INSTALL_DIR=/path/to/bin` を指定すると、導入するversionやinstall先を変更できます。
+
+If the install directory is not writable, choose a user-writable directory
+instead of using `sudo`:
+
+install先directoryに書き込めない場合は、`sudo` ではなくユーザーが書き込めるdirectoryを指定します。
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Kota-Ohno/repo-doctor/main/scripts/install.sh | sh -s -- --dir "$HOME/.local/bin"
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+```powershell
+iwr https://raw.githubusercontent.com/Kota-Ohno/repo-doctor/main/scripts/install.ps1 -UseB | iex
+$env:PATH = "$HOME\.repo-doctor\bin;$env:PATH"
+```
 
 ## Docker
 
