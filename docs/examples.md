@@ -23,9 +23,10 @@ repo-doctor ci --guard > .github/workflows/repo-doctor-guard.yml
 Use this when AI agents are making repository changes. It checks the full
 repository and adds diff-aware warnings for newly added secret-like files,
 removed tests, changed CI guardrails, dependency manifests without lockfile
-updates, and weak or missing `AGENTS.md` instructions.
+updates, source changes without test updates, generated/binary artifacts, build
+or task definition changes, and weak or missing `AGENTS.md` instructions.
 
-AI agentがリポジトリを変更する場合に使います。リポジトリ全体の確認に加えて、secret-like fileの追加、test削除、CI guardrail変更、lockfile未更新、弱い/不足した `AGENTS.md` を差分ベースで警告します。
+AI agentがリポジトリを変更する場合に使います。リポジトリ全体の確認に加えて、secret-like fileの追加、test削除、CI guardrail変更、lockfile未更新、test更新なしのsource変更、生成物/binary artifact、build/task定義変更、弱い/不足した `AGENTS.md` を差分ベースで警告します。
 
 ## Rust CLI
 

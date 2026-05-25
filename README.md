@@ -233,9 +233,11 @@ repo-doctor check --format summary
 For AI/VibeCoding guardrails, use `guard`. It runs normal readiness checks and
 adds Git-diff checks for newly added secret-like files, CI guardrail changes,
 removed tests, manifest changes without lockfile updates, oversized changes, and
-`AGENTS.md` quality.
+`AGENTS.md` quality. It also flags source changes without test updates, build or
+task definition changes, and generated/vendor/binary artifacts across the
+supported ecosystem profiles.
 
-AI/VibeCoding のガードレールとして使う場合は `guard` を使います。通常のreadiness checkに加えて、Git差分から、secret-like fileの追加、CI guardrail変更、test削除、lockfile未更新、巨大差分、`AGENTS.md` の品質を確認します。
+AI/VibeCoding のガードレールとして使う場合は `guard` を使います。通常のreadiness checkに加えて、Git差分から、secret-like fileの追加、CI guardrail変更、test削除、lockfile未更新、巨大差分、`AGENTS.md` の品質を確認します。さらに、対応済みecosystem profile全体で、test更新なしのsource変更、build/task定義変更、生成物/vendor/binary artifactも警告します。
 
 ```bash
 repo-doctor guard --fail-on warn

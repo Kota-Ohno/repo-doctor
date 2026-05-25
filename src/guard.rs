@@ -2,6 +2,7 @@ use std::collections::{BTreeSet, HashSet};
 use std::path::Path;
 use std::process::Command;
 
+use crate::profiles::Profile;
 use crate::report::{Check, pass, warn};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -18,7 +19,7 @@ enum ChangeStatus {
     Renamed,
 }
 
-pub(crate) fn inspect(path: &Path, base: Option<&str>) -> Vec<Check> {
+pub(crate) fn inspect(path: &Path, base: Option<&str>, profiles: &[Profile]) -> Vec<Check> {
     let mut checks = Vec::new();
     let changes = changed_files(path, base);
 
@@ -37,7 +38,10 @@ pub(crate) fn inspect(path: &Path, base: Option<&str>) -> Vec<Check> {
     checks.push(check_removed_guardrail_files(&changes));
     checks.push(check_deleted_tests(&changes));
     checks.push(check_manifest_lockfile_sync(&changes));
-    checks.extend(check_agent_instructions(path));
+    checks.push(check_source_changes_have_tests(path, &changes));
+    checks.push(check_build_or_task_changes(&changes));
+    checks.push(check_generated_artifact_additions(&changes));
+    checks.extend(check_agent_instructions(path, profiles));
     checks
 }
 
@@ -85,6 +89,24 @@ fn changed_files(path: &Path, base: Option<&str>) -> std::io::Result<Vec<Changed
     if output.status.success() {
         saw_successful_git_command = true;
         parse_porcelain_status(&String::from_utf8_lossy(&output.stdout), &mut changes);
+    }
+
+    let output = Command::new("git")
+        .args(["-C"])
+        .arg(path)
+        .args(["ls-files", "--others", "--exclude-standard"])
+        .output()?;
+    if output.status.success() {
+        saw_successful_git_command = true;
+        for file in String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+        {
+            changes.insert(ChangedFile {
+                status: ChangeStatus::Added,
+                path: normalize_path(file),
+            });
+        }
     }
 
     if !saw_successful_git_command {
@@ -324,18 +346,23 @@ fn is_test_path(path: &str) -> bool {
 }
 
 fn check_manifest_lockfile_sync(changes: &[ChangedFile]) -> Check {
-    let changed_paths = changes
-        .iter()
-        .filter(|change| !matches!(change.status, ChangeStatus::Deleted))
-        .map(|change| change.path.as_str())
-        .collect::<BTreeSet<_>>();
+    let changed_paths = changed_non_deleted_paths(changes);
     let mut unsynced = Vec::new();
 
-    for (manifest, lockfiles) in manifest_lockfile_rules() {
-        if changed_paths.contains(manifest)
-            && !lockfiles.iter().any(|lock| changed_paths.contains(lock))
-        {
-            unsynced.push(manifest);
+    for rule in manifest_lockfile_rules() {
+        let changed_manifests = changed_paths
+            .iter()
+            .filter(|path| rule.matches_manifest(path))
+            .copied()
+            .collect::<Vec<_>>();
+        for manifest in changed_manifests {
+            let dir = parent_dir(manifest);
+            if !changed_paths
+                .iter()
+                .any(|path| rule.matches_lockfile_for_dir(path, dir))
+            {
+                unsynced.push(manifest);
+            }
         }
     }
 
@@ -357,12 +384,34 @@ fn check_manifest_lockfile_sync(changes: &[ChangedFile]) -> Check {
     .with_location(unsynced[0], None)
 }
 
-fn manifest_lockfile_rules() -> Vec<(&'static str, Vec<&'static str>)> {
+struct LockfileRule {
+    manifests: &'static [&'static str],
+    lockfiles: &'static [&'static str],
+}
+
+impl LockfileRule {
+    fn matches_manifest(&self, path: &str) -> bool {
+        self.manifests
+            .iter()
+            .any(|manifest| path == *manifest || path.ends_with(&format!("/{manifest}")))
+    }
+
+    fn matches_lockfile_for_dir(&self, path: &str, dir: &str) -> bool {
+        self.lockfiles
+            .iter()
+            .any(|lockfile| path == join_path(dir, lockfile))
+    }
+}
+
+fn manifest_lockfile_rules() -> Vec<LockfileRule> {
     vec![
-        ("Cargo.toml", vec!["Cargo.lock"]),
-        (
-            "package.json",
-            vec![
+        LockfileRule {
+            manifests: &["Cargo.toml"],
+            lockfiles: &["Cargo.lock"],
+        },
+        LockfileRule {
+            manifests: &["package.json"],
+            lockfiles: &[
                 "package-lock.json",
                 "npm-shrinkwrap.json",
                 "yarn.lock",
@@ -370,18 +419,215 @@ fn manifest_lockfile_rules() -> Vec<(&'static str, Vec<&'static str>)> {
                 "bun.lock",
                 "bun.lockb",
             ],
-        ),
-        (
-            "pyproject.toml",
-            vec!["uv.lock", "poetry.lock", "Pipfile.lock", "pdm.lock"],
-        ),
-        ("go.mod", vec!["go.sum"]),
-        ("composer.json", vec!["composer.lock"]),
-        ("Gemfile", vec!["Gemfile.lock"]),
+        },
+        LockfileRule {
+            manifests: &["pyproject.toml", "Pipfile"],
+            lockfiles: &["uv.lock", "poetry.lock", "Pipfile.lock", "pdm.lock"],
+        },
+        LockfileRule {
+            manifests: &["requirements.txt"],
+            lockfiles: &["requirements.lock", "requirements.txt"],
+        },
+        LockfileRule {
+            manifests: &["go.mod"],
+            lockfiles: &["go.sum"],
+        },
+        LockfileRule {
+            manifests: &["deno.json", "deno.jsonc"],
+            lockfiles: &["deno.lock"],
+        },
+        LockfileRule {
+            manifests: &["composer.json"],
+            lockfiles: &["composer.lock"],
+        },
+        LockfileRule {
+            manifests: &["Gemfile"],
+            lockfiles: &["Gemfile.lock"],
+        },
+        LockfileRule {
+            manifests: &["Package.swift"],
+            lockfiles: &["Package.resolved"],
+        },
+        LockfileRule {
+            manifests: &["packages.config", "Directory.Packages.props"],
+            lockfiles: &["packages.lock.json"],
+        },
+        LockfileRule {
+            manifests: &["main.tf", "providers.tf", "versions.tf"],
+            lockfiles: &[".terraform.lock.hcl"],
+        },
     ]
 }
 
-fn check_agent_instructions(path: &Path) -> Vec<Check> {
+fn check_source_changes_have_tests(path: &Path, changes: &[ChangedFile]) -> Check {
+    let source_changes = changes
+        .iter()
+        .filter(|change| !matches!(change.status, ChangeStatus::Deleted))
+        .filter(|change| is_source_path(&change.path))
+        .map(|change| change.path.as_str())
+        .collect::<Vec<_>>();
+
+    if source_changes.is_empty() {
+        return pass(
+            "guard_source_tests",
+            "No source changes require test changes",
+        );
+    }
+
+    let test_changed = changes.iter().any(|change| {
+        !matches!(change.status, ChangeStatus::Deleted)
+            && (is_test_path(&change.path) || changed_file_contains_test(path, &change.path))
+    });
+    if test_changed {
+        return pass(
+            "guard_source_tests",
+            "Source changes include matching test updates",
+        );
+    }
+
+    warn(
+        "guard_source_tests",
+        format!(
+            "Source files changed without matching test changes: {}",
+            source_changes.join(", ")
+        ),
+        "Add or update tests in the same change, or document why existing coverage is sufficient.",
+    )
+    .with_location(source_changes[0], None)
+}
+
+fn is_source_path(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    if lower.starts_with("docs/")
+        || lower.starts_with("tests/")
+        || lower.contains("/tests/")
+        || lower.starts_with("examples/")
+        || lower.starts_with("vendor/")
+        || lower.contains("/vendor/")
+    {
+        return false;
+    }
+
+    [
+        ".rs", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".java", ".kt", ".kts",
+        ".cs", ".fs", ".vb", ".php", ".rb", ".c", ".cc", ".cpp", ".cxx", ".h", ".hpp", ".swift",
+        ".tf", ".tfvars",
+    ]
+    .iter()
+    .any(|extension| lower.ends_with(extension))
+}
+
+fn changed_file_contains_test(root: &Path, path: &str) -> bool {
+    let Ok(contents) = std::fs::read_to_string(root.join(path)) else {
+        return false;
+    };
+    let lower = contents.to_ascii_lowercase();
+    lower.contains("#[test]")
+        || lower.contains("describe(")
+        || lower.contains("it(")
+        || lower.contains("test(")
+        || lower.contains("def test_")
+        || lower.contains("func test")
+        || lower.contains("@test")
+}
+
+fn check_build_or_task_changes(changes: &[ChangedFile]) -> Check {
+    let changed = changes
+        .iter()
+        .filter(|change| !matches!(change.status, ChangeStatus::Deleted))
+        .filter(|change| is_build_or_task_path(&change.path))
+        .map(|change| change.path.as_str())
+        .collect::<Vec<_>>();
+
+    if changed.is_empty() {
+        return pass(
+            "guard_build_logic_modified",
+            "Build, package, and task definitions were not changed",
+        );
+    }
+
+    warn(
+        "guard_build_logic_modified",
+        format!("Build or task definitions changed: {}", changed.join(", ")),
+        "Review install, build, publish, and test command changes carefully before merging AI-generated edits.",
+    )
+    .with_location(changed[0], None)
+}
+
+fn is_build_or_task_path(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    let name = lower.rsplit('/').next().unwrap_or(&lower);
+    matches!(
+        name,
+        "package.json"
+            | "deno.json"
+            | "deno.jsonc"
+            | "bunfig.toml"
+            | "cargo.toml"
+            | "pyproject.toml"
+            | "setup.py"
+            | "go.mod"
+            | "pom.xml"
+            | "build.gradle"
+            | "build.gradle.kts"
+            | "composer.json"
+            | "gemfile"
+            | "rakefile"
+            | "cmakelists.txt"
+            | "makefile"
+            | "meson.build"
+            | "package.swift"
+            | "global.json"
+            | "directory.build.props"
+            | "directory.packages.props"
+    )
+}
+
+fn check_generated_artifact_additions(changes: &[ChangedFile]) -> Check {
+    let added = changes
+        .iter()
+        .filter(|change| matches!(change.status, ChangeStatus::Added | ChangeStatus::Renamed))
+        .filter(|change| is_generated_or_binary_artifact(&change.path))
+        .map(|change| change.path.as_str())
+        .collect::<Vec<_>>();
+
+    if added.is_empty() {
+        return pass(
+            "guard_generated_artifact_added",
+            "No generated, vendor, or binary artifacts were added",
+        );
+    }
+
+    warn(
+        "guard_generated_artifact_added",
+        format!("Generated or binary artifacts were added: {}", added.join(", ")),
+        "Keep generated output, vendored dependencies, and binaries out of review unless explicitly intended.",
+    )
+    .with_location(added[0], None)
+}
+
+fn is_generated_or_binary_artifact(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    lower.starts_with("dist/")
+        || lower.starts_with("build/")
+        || lower.starts_with("target/")
+        || lower.starts_with("vendor/")
+        || lower.contains("/vendor/")
+        || lower.contains("/node_modules/")
+        || lower.ends_with(".min.js")
+        || lower.ends_with(".wasm")
+        || lower.ends_with(".exe")
+        || lower.ends_with(".dll")
+        || lower.ends_with(".so")
+        || lower.ends_with(".dylib")
+        || lower.ends_with(".zip")
+        || lower.ends_with(".tar.gz")
+        || lower.ends_with(".jar")
+        || lower.ends_with(".class")
+        || lower.ends_with(".pyc")
+}
+
+fn check_agent_instructions(path: &Path, profiles: &[Profile]) -> Vec<Check> {
     let mut checks = Vec::new();
     let agent_path = path.join("AGENTS.md");
     if !agent_path.exists() {
@@ -400,6 +646,11 @@ fn check_agent_instructions(path: &Path) -> Vec<Check> {
                 "agent_boundaries",
                 "Agent editing boundaries are not documented",
                 "Document files or areas agents may edit, must avoid, or must ask before changing.",
+            ),
+            warn(
+                "agent_profile_verification",
+                "Agent profile-specific verification commands are not documented",
+                "Document verification commands for each detected ecosystem profile.",
             ),
         ];
     }
@@ -462,5 +713,83 @@ fn check_agent_instructions(path: &Path) -> Vec<Check> {
         );
     }
 
+    checks.push(check_agent_profile_verification(&lower, profiles));
     checks
+}
+
+fn check_agent_profile_verification(contents: &str, profiles: &[Profile]) -> Check {
+    let missing = profiles
+        .iter()
+        .filter(|profile| {
+            !profile_verification_terms(**profile)
+                .iter()
+                .any(|term| contents.contains(term))
+        })
+        .map(|profile| profile.name())
+        .collect::<Vec<_>>();
+
+    if missing.is_empty() {
+        return pass(
+            "agent_profile_verification",
+            "AGENTS.md documents verification commands for detected profiles",
+        );
+    }
+
+    warn(
+        "agent_profile_verification",
+        format!(
+            "AGENTS.md lacks verification commands for detected profiles: {}",
+            missing.join(", ")
+        ),
+        "Add profile-specific commands such as cargo test, npm test, pytest, go test, docker build, terraform validate, or docs builds.",
+    )
+    .with_location("AGENTS.md", None)
+}
+
+fn profile_verification_terms(profile: Profile) -> &'static [&'static str] {
+    match profile {
+        Profile::Rust => &["cargo test", "cargo clippy"],
+        Profile::Node | Profile::Frontend => {
+            &["npm test", "pnpm test", "yarn test", "npm run build"]
+        }
+        Profile::Python => &["pytest", "python -m pytest"],
+        Profile::Go => &["go test"],
+        Profile::Docker => &["docker build", "hadolint"],
+        Profile::Jvm | Profile::Kotlin => &["mvn test", "gradle test", "./gradlew test"],
+        Profile::Deno => &["deno test", "deno task"],
+        Profile::Bun => &["bun test"],
+        Profile::Dotnet => &["dotnet test"],
+        Profile::Php => &["composer test", "vendor/bin/phpunit", "phpunit"],
+        Profile::Ruby => &["bundle exec", "rake test", "rspec"],
+        Profile::Cpp => &["ctest", "cmake --build", "make test"],
+        Profile::Swift => &["swift test"],
+        Profile::Iac => &["terraform validate", "tofu validate", "terraform fmt"],
+        Profile::Docs => &[
+            "mkdocs build",
+            "mdbook build",
+            "docusaurus build",
+            "vitepress build",
+        ],
+        Profile::Auto | Profile::Generic => &[],
+    }
+}
+
+fn changed_non_deleted_paths(changes: &[ChangedFile]) -> BTreeSet<&str> {
+    changes
+        .iter()
+        .filter(|change| !matches!(change.status, ChangeStatus::Deleted))
+        .map(|change| change.path.as_str())
+        .collect()
+}
+
+fn parent_dir(path: &str) -> &str {
+    path.rsplit_once('/').map_or("", |(dir, _)| dir)
+}
+
+fn join_path(dir: &str, file: &str) -> String {
+    if dir.is_empty() {
+        file.to_owned()
+    } else {
+        format!("{dir}/{file}")
+    }
 }

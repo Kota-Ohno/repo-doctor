@@ -46,5 +46,15 @@ readiness checks because they are meant to run before AI-generated changes land.
 - `guard_guardrail_removed`: removed workflows, security files, or repo-doctor config
 - `guard_tests_deleted`: deleted tests
 - `guard_lockfile_sync`: changed dependency manifests without lockfile updates
+- `guard_source_tests`: source changes without matching test changes
+- `guard_build_logic_modified`: build, package, and task definition changes
+- `guard_generated_artifact_added`: generated, vendor, or binary artifact additions
 - `guard_large_change_set`: unusually broad changes
-- `agent_instructions`, `agent_verification`, `agent_boundaries`: `AGENTS.md` quality
+- `agent_instructions`, `agent_verification`, `agent_boundaries`,
+  `agent_profile_verification`: `AGENTS.md` quality
+
+The lockfile and build-definition checks cover the supported profiles: Rust,
+Node, Python, Go, Docker, JVM/Kotlin, Deno, Bun, .NET, PHP, Ruby, C/C++, Swift,
+frontend, IaC, and docs sites.
+
+lockfileとbuild-definitionのチェックは、対応済みprofileであるRust、Node、Python、Go、Docker、JVM/Kotlin、Deno、Bun、.NET、PHP、Ruby、C/C++、Swift、frontend、IaC、docs siteを対象にします。

@@ -584,7 +584,7 @@ fn inspect_repository_with_config_and_guard(
     let mut checks = core::inspect(path);
     let selected_profiles = config.selected_profiles(path, profile);
     checks.extend(profiles::inspect(path, &selected_profiles));
-    checks.extend(guard::inspect(path, base));
+    checks.extend(guard::inspect(path, base, &selected_profiles));
     checks = config.apply(checks);
 
     report::Report::new(path.to_path_buf(), selected_profiles, checks)
@@ -1756,6 +1756,125 @@ requires = ["setuptools"]
     }
 
     #[test]
+    fn guard_warns_on_nested_manifest_without_nested_lockfile_change() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        init_git_repo(temp_dir.path());
+        fs::create_dir_all(temp_dir.path().join("apps/web")).unwrap();
+        fs::write(temp_dir.path().join("apps/web/package.json"), "{}\n").unwrap();
+
+        let output = guard_repository_with_options(
+            temp_dir.path(),
+            OutputFormat::Text,
+            Profile::Generic,
+            None,
+            None,
+            CheckOptions::default(),
+        )
+        .unwrap();
+
+        assert!(output.text.contains("[WARN] guard_lockfile_sync"));
+        assert!(output.text.contains("apps/web/package.json"));
+    }
+
+    #[test]
+    fn guard_accepts_nested_manifest_with_matching_lockfile_change() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        init_git_repo(temp_dir.path());
+        fs::create_dir_all(temp_dir.path().join("apps/web")).unwrap();
+        fs::write(temp_dir.path().join("apps/web/package.json"), "{}\n").unwrap();
+        fs::write(
+            temp_dir.path().join("apps/web/pnpm-lock.yaml"),
+            "lockfileVersion: '9'\n",
+        )
+        .unwrap();
+
+        let output = guard_repository_with_options(
+            temp_dir.path(),
+            OutputFormat::Text,
+            Profile::Generic,
+            None,
+            None,
+            CheckOptions::default(),
+        )
+        .unwrap();
+
+        assert!(output.text.contains("[PASS] guard_lockfile_sync"));
+    }
+
+    #[test]
+    fn guard_warns_on_source_changes_without_tests() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        init_git_repo(temp_dir.path());
+        fs::create_dir(temp_dir.path().join("src")).unwrap();
+        fs::write(
+            temp_dir.path().join("src/app.ts"),
+            "export const answer = 42;\n",
+        )
+        .unwrap();
+
+        let output = guard_repository_with_options(
+            temp_dir.path(),
+            OutputFormat::Text,
+            Profile::Generic,
+            None,
+            None,
+            CheckOptions::default(),
+        )
+        .unwrap();
+
+        assert!(output.text.contains("[WARN] guard_source_tests"));
+    }
+
+    #[test]
+    fn guard_accepts_source_changes_with_inline_tests() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        init_git_repo(temp_dir.path());
+        fs::write(
+            temp_dir.path().join("lib.rs"),
+            "#[test]\nfn smoke() { assert!(true); }\n",
+        )
+        .unwrap();
+
+        let output = guard_repository_with_options(
+            temp_dir.path(),
+            OutputFormat::Text,
+            Profile::Generic,
+            None,
+            None,
+            CheckOptions::default(),
+        )
+        .unwrap();
+
+        assert!(output.text.contains("[PASS] guard_source_tests"));
+    }
+
+    #[test]
+    fn guard_warns_on_build_logic_and_generated_artifact_changes() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        init_git_repo(temp_dir.path());
+        fs::create_dir(temp_dir.path().join("dist")).unwrap();
+        fs::write(temp_dir.path().join("build.gradle.kts"), "plugins {}\n").unwrap();
+        fs::write(temp_dir.path().join("dist/app.jar"), "binary\n").unwrap();
+
+        let output = guard_repository_with_options(
+            temp_dir.path(),
+            OutputFormat::Text,
+            Profile::Generic,
+            None,
+            None,
+            CheckOptions::default(),
+        )
+        .unwrap();
+
+        assert!(output.text.contains("[WARN] guard_build_logic_modified"));
+        assert!(
+            output
+                .text
+                .contains("[WARN] guard_generated_artifact_added")
+        );
+    }
+
+    #[test]
     fn guard_warns_on_deleted_tests_and_removed_guardrails() {
         let temp_dir = tempfile::tempdir().unwrap();
         init_git_repo(temp_dir.path());
@@ -1808,6 +1927,30 @@ requires = ["setuptools"]
         assert!(output.text.contains("[PASS] agent_instructions"));
         assert!(output.text.contains("[PASS] agent_verification"));
         assert!(output.text.contains("[WARN] agent_boundaries"));
+    }
+
+    #[test]
+    fn guard_checks_profile_specific_agent_verification() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        init_git_repo(temp_dir.path());
+        fs::write(
+            temp_dir.path().join("AGENTS.md"),
+            "Run cargo test. Do not edit generated files.\n",
+        )
+        .unwrap();
+
+        let output = guard_repository_with_options(
+            temp_dir.path(),
+            OutputFormat::Text,
+            Profile::Docker,
+            None,
+            None,
+            CheckOptions::default(),
+        )
+        .unwrap();
+
+        assert!(output.text.contains("[WARN] agent_profile_verification"));
+        assert!(output.text.contains("docker"));
     }
 
     #[test]
@@ -2055,6 +2198,8 @@ requires = ["setuptools"]
         assert!(list_rules().contains("config_disabled_rule_reason\twarning\tconfig"));
         assert!(list_rules().contains("guard_secret_added\twarning\tguard"));
         assert!(list_rules().contains("agent_verification\twarning\tguard"));
+        assert!(list_rules().contains("guard_source_tests\twarning\tguard"));
+        assert!(list_rules().contains("agent_profile_verification\twarning\tguard"));
     }
 
     #[test]

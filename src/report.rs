@@ -207,6 +207,21 @@ pub fn known_rules() -> Vec<RuleInfo> {
             "Guard mode detects manifest changes without lockfile updates",
         ),
         rule(
+            "guard_source_tests",
+            "guard",
+            "Guard mode detects source changes without matching tests",
+        ),
+        rule(
+            "guard_build_logic_modified",
+            "guard",
+            "Guard mode highlights build, package, and task definition changes",
+        ),
+        rule(
+            "guard_generated_artifact_added",
+            "guard",
+            "Guard mode detects generated, vendor, and binary artifact additions",
+        ),
+        rule(
             "agent_instructions",
             "guard",
             "Agent instructions are present",
@@ -220,6 +235,11 @@ pub fn known_rules() -> Vec<RuleInfo> {
             "agent_boundaries",
             "guard",
             "Agent instructions document editing boundaries",
+        ),
+        rule(
+            "agent_profile_verification",
+            "guard",
+            "Agent instructions document verification for detected profiles",
         ),
         RuleInfo {
             id: "rust_cargo_name",

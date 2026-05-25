@@ -57,6 +57,7 @@ cargo audit
 cargo deny check
 typos
 taplo fmt --check
+docker build -t repo-doctor .
 ```
 
 Short aliases are also available:

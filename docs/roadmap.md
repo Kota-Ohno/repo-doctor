@@ -178,9 +178,14 @@ Backlogは優先度別に整理しています。完了済み項目は `[x]` で
       repo-doctor config.
 - [x] Warn on deleted test files.
 - [x] Warn on dependency manifest changes without matching lockfile updates.
+- [x] Cover nested manifests and lockfiles across supported ecosystems.
+- [x] Warn on source changes without matching test changes.
+- [x] Warn on build, package, and task definition changes.
+- [x] Warn on generated, vendor, and binary artifact additions.
 - [x] Warn on unusually large change sets.
 - [x] Check `AGENTS.md` presence, verification commands, and editing
       boundaries.
+- [x] Check `AGENTS.md` for verification commands matching detected profiles.
 - [x] Generate a guardrail GitHub Actions workflow with `repo-doctor ci
       --guard`.
 
