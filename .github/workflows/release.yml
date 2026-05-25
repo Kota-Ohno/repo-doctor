@@ -60,7 +60,7 @@ jobs:
           Compress-Archive -Path "dist/repo-doctor.exe" -DestinationPath "repo-doctor-${{ matrix.target }}.zip"
           $hash = Get-FileHash "repo-doctor-${{ matrix.target }}.zip" -Algorithm SHA256
           "$($hash.Hash.ToLower())  repo-doctor-${{ matrix.target }}.zip" | Out-File -Encoding ascii "repo-doctor-${{ matrix.target }}.zip.sha256"
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           files: |
