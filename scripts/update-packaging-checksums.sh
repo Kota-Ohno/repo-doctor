@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-version="${1:-v0.1.0}"
+version="${1:-v0.1.1}"
 repo="${REPO_DOCTOR_REPO:-Kota-Ohno/repo-doctor}"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

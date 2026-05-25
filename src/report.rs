@@ -166,6 +166,11 @@ pub fn known_rules() -> Vec<RuleInfo> {
             category: "community",
             description: "Changelog or release notes are present",
         },
+        rule(
+            "config_disabled_rule_reason",
+            "config",
+            "Disabled rules include a rationale",
+        ),
         RuleInfo {
             id: "rust_cargo_name",
             severity: "warning",

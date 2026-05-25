@@ -7,9 +7,12 @@ const { execFileSync } = require("node:child_process");
 
 const root = path.join(__dirname, "..");
 const vendor = path.join(root, "vendor");
-const version = process.env.REPO_DOCTOR_VERSION || "latest";
+const packageJson = require(path.join(root, "package.json"));
+const version = process.env.REPO_DOCTOR_VERSION || `v${packageJson.version}`;
 
 function target() {
+  if (process.env.REPO_DOCTOR_TARGET) return process.env.REPO_DOCTOR_TARGET;
+
   const arch = os.arch() === "x64" ? "x86_64" : os.arch() === "arm64" ? "aarch64" : null;
   const platform = {
     linux: "unknown-linux-gnu",
@@ -25,6 +28,11 @@ function target() {
 }
 
 function download(url, dest) {
+  if (url.startsWith("file://")) {
+    fs.copyFileSync(new URL(url), dest);
+    return Promise.resolve();
+  }
+
   return new Promise((resolve, reject) => {
     https.get(url, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -43,9 +51,9 @@ async function main() {
   const triple = target();
   const isWindows = os.platform() === "win32";
   const ext = isWindows ? "zip" : "tar.gz";
-  const base = version === "latest"
+  const base = process.env.REPO_DOCTOR_BASE_URL || (version === "latest"
     ? "https://github.com/Kota-Ohno/repo-doctor/releases/latest/download"
-    : `https://github.com/Kota-Ohno/repo-doctor/releases/download/${version}`;
+    : `https://github.com/Kota-Ohno/repo-doctor/releases/download/${version}`);
   const archive = path.join(os.tmpdir(), `repo-doctor-${triple}.${ext}`);
   const checksum = `${archive}.sha256`;
 

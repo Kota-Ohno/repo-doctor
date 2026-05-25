@@ -6,11 +6,12 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
 jobs:
-  release-plz:
+  release-pr:
     name: Release PR
     runs-on: ubuntu-latest
     steps:
@@ -24,3 +25,36 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           command: release-pr
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: release-plz/action@v0.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          command: release
+      - name: Dispatch binary asset release workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "repo-doctor") | .version')"
+          tag="v${version}"
+          if ! git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "No ${tag} tag exists; skipping binary asset workflow dispatch."
+            exit 0
+          fi
+          has_checksums="$(gh release view "${tag}" --json assets --jq 'any(.assets[]?.name; endswith(".sha256"))' 2>/dev/null || echo false)"
+          if [ "${has_checksums}" = "true" ]; then
+            echo "${tag} already has checksum assets; skipping binary asset workflow dispatch."
+            exit 0
+          fi
+          gh workflow run release.yml --ref main -f tag="${tag}"

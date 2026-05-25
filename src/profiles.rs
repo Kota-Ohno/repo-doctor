@@ -353,11 +353,12 @@ fn inspect_rust(path: &Path) -> Vec<Check> {
     let Some(package) = package else {
         if parsed.get("workspace").is_some() {
             let mut checks = vec![
-                check_rust_workspace(&parsed),
+                check_rust_workspace(path, &parsed),
                 check_cargo_lock(path),
                 check_gitignore_target(path),
                 check_rust_toolchain(path),
                 check_rust_tooling_configs(path),
+                check_rust_ci_commands(path),
             ];
             checks.retain(|check| !check.id.is_empty());
             return checks;
@@ -401,12 +402,13 @@ fn inspect_rust(path: &Path) -> Vec<Check> {
             "rust_cargo_license_file_path",
             "license-file",
         ),
-        check_rust_workspace(&parsed),
+        check_rust_workspace(path, &parsed),
         check_cargo_lock(path),
         check_gitignore_target(path),
         check_rust_readme_commands(path, package),
         check_rust_toolchain(path),
         check_rust_tooling_configs(path),
+        check_rust_ci_commands(path),
     ];
 
     checks.retain(|check| !check.id.is_empty());
@@ -477,25 +479,99 @@ fn check_toml_path(
     }
 }
 
-fn check_rust_workspace(manifest: &toml::Value) -> Check {
+fn check_rust_workspace(path: &Path, manifest: &toml::Value) -> Check {
     let workspace = manifest.get("workspace").and_then(toml::Value::as_table);
     let Some(workspace) = workspace else {
         return pass("rust_workspace", "Cargo manifest is a package crate");
     };
 
-    if workspace
-        .get("members")
-        .and_then(toml::Value::as_array)
-        .is_some_and(|members| !members.is_empty())
-    {
+    let Some(members) = workspace.get("members").and_then(toml::Value::as_array) else {
+        return warn(
+            "rust_workspace",
+            "Cargo workspace has no members",
+            "Set `workspace.members` in Cargo.toml or remove the empty workspace section.",
+        );
+    };
+
+    if members.is_empty() {
+        return warn(
+            "rust_workspace",
+            "Cargo workspace has no members",
+            "Set `workspace.members` in Cargo.toml or remove the empty workspace section.",
+        );
+    }
+
+    let missing = members
+        .iter()
+        .filter_map(toml::Value::as_str)
+        .filter(|member| !workspace_member_exists(path, member))
+        .collect::<Vec<_>>();
+
+    if missing.is_empty() {
         pass("rust_workspace", "Cargo workspace members are configured")
     } else {
         warn(
             "rust_workspace",
-            "Cargo workspace has no members",
-            "Set `workspace.members` in Cargo.toml or remove the empty workspace section.",
+            format!(
+                "Cargo workspace member paths are missing: {}",
+                missing.join(", ")
+            ),
+            "Create the workspace members or update `workspace.members` in Cargo.toml.",
         )
     }
+}
+
+fn workspace_member_exists(path: &Path, member: &str) -> bool {
+    if !member.contains('*') {
+        return path.join(member).join("Cargo.toml").exists();
+    }
+
+    workspace_glob_matches(path, path, member)
+}
+
+fn workspace_glob_matches(root: &Path, current: &Path, member: &str) -> bool {
+    let Ok(entries) = current.read_dir() else {
+        return false;
+    };
+
+    entries.filter_map(Result::ok).any(|entry| {
+        let entry_path = entry.path();
+        if !entry_path.is_dir() {
+            return false;
+        }
+        let Ok(relative) = entry_path.strip_prefix(root).map(Path::to_path_buf) else {
+            return false;
+        };
+        let relative = relative.to_string_lossy().replace('\\', "/");
+        (wildcard_match(member, &relative) && entry_path.join("Cargo.toml").exists())
+            || workspace_glob_matches(root, &entry_path, member)
+    })
+}
+
+fn wildcard_match(pattern: &str, value: &str) -> bool {
+    let mut remainder = value;
+    let mut first = true;
+
+    for part in pattern.split('*') {
+        if part.is_empty() {
+            first = false;
+            continue;
+        }
+        if first && !pattern.starts_with('*') {
+            let Some(stripped) = remainder.strip_prefix(part) else {
+                return false;
+            };
+            remainder = stripped;
+        } else {
+            let Some(index) = remainder.find(part) else {
+                return false;
+            };
+            remainder = &remainder[index + part.len()..];
+        }
+        first = false;
+    }
+
+    pattern.ends_with('*') || remainder.is_empty()
 }
 
 fn check_cargo_lock(path: &Path) -> Check {
@@ -596,6 +672,34 @@ fn check_rust_tooling_configs(path: &Path) -> Check {
             "rust_tooling_config",
             "Rust rustfmt or clippy config is missing",
             "Add rustfmt.toml and clippy.toml when the project has non-default formatting or lint policy.",
+        )
+    }
+}
+
+fn check_rust_ci_commands(path: &Path) -> Check {
+    let all_workflows = workflow_contents(path);
+    if all_workflows.is_empty() {
+        return pass(
+            "github_actions_rust_ci",
+            "Rust CI command check is not applicable",
+        );
+    }
+
+    let has_fmt = all_workflows.contains("cargo fmt")
+        && (all_workflows.contains("--check") || all_workflows.contains("fmtc"));
+    let has_clippy = all_workflows.contains("cargo clippy") || all_workflows.contains("lint");
+    let has_tests = all_workflows.contains("cargo test") || all_workflows.contains("cargo nextest");
+
+    if has_fmt && has_clippy && has_tests {
+        pass(
+            "github_actions_rust_ci",
+            "GitHub Actions include Rust fmt, clippy, and test commands",
+        )
+    } else {
+        warn(
+            "github_actions_rust_ci",
+            "GitHub Actions are missing Rust fmt, clippy, or test commands",
+            "Add cargo fmt --all --check, cargo clippy, and cargo test or cargo nextest to CI.",
         )
     }
 }
@@ -711,6 +815,7 @@ fn check_node_lockfile(path: &Path) -> Check {
         "npm-shrinkwrap.json",
         "yarn.lock",
         "pnpm-lock.yaml",
+        "bun.lock",
         "bun.lockb",
     ];
 
@@ -1024,7 +1129,7 @@ fn inspect_go(path: &Path) -> Vec<Check> {
     vec![
         check_go_module(&go_mod),
         check_go_version(&go_mod),
-        check_go_sum(path),
+        check_go_sum(path, &go_mod),
         check_go_ci_commands(path),
     ]
 }
@@ -1061,7 +1166,16 @@ fn check_go_version(go_mod: &str) -> Check {
     }
 }
 
-fn check_go_sum(path: &Path) -> Check {
+fn check_go_sum(path: &Path, go_mod: &str) -> Check {
+    let has_requirements = go_mod.lines().map(str::trim).any(|line| {
+        line.starts_with("require ")
+            || line == "require ("
+            || (line.starts_with('\t') && !line.starts_with("\t//"))
+    });
+    if !has_requirements {
+        return pass("go_sum", "go.sum check is not applicable");
+    }
+
     if path.join("go.sum").exists() {
         pass("go_sum", "go.sum is present")
     } else {

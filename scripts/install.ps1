@@ -14,7 +14,7 @@ Usage:
   install.ps1 [-Version <tag>] [-InstallDir <path>]
 
 Options:
-  -Version     Release tag to install, for example v0.1.0. Default: latest
+  -Version     Release tag to install, for example v0.1.1. Default: latest
   -InstallDir  Directory where repo-doctor.exe is installed. Default: ~/.repo-doctor/bin
   -Help        Show this help.
 "@ | Write-Host

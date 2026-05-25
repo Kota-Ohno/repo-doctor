@@ -133,7 +133,7 @@ pub enum Command {
         template: InitTemplate,
 
         /// repo-doctor release tag used by the action.
-        #[arg(long, default_value = "v0.1.0")]
+        #[arg(long, default_value = "v0.1.1")]
         version: String,
     },
 
@@ -599,23 +599,23 @@ fn init_full_files(path: &Path, template: InitTemplate) -> Vec<InitFile> {
     let (dependabot, workflow) = match template {
         InitTemplate::Generic => (
             "version: 2\nupdates:\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
-            ci_workflow(InitTemplate::Generic, "v0.1.0"),
+            ci_workflow(InitTemplate::Generic, "v0.1.1"),
         ),
         InitTemplate::Rust => (
             "version: 2\nupdates:\n  - package-ecosystem: cargo\n    directory: /\n    schedule:\n      interval: weekly\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
-            ci_workflow(InitTemplate::Rust, "v0.1.0"),
+            ci_workflow(InitTemplate::Rust, "v0.1.1"),
         ),
         InitTemplate::Node => (
             "version: 2\nupdates:\n  - package-ecosystem: npm\n    directory: /\n    schedule:\n      interval: weekly\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
-            ci_workflow(InitTemplate::Node, "v0.1.0"),
+            ci_workflow(InitTemplate::Node, "v0.1.1"),
         ),
         InitTemplate::Python => (
             "version: 2\nupdates:\n  - package-ecosystem: pip\n    directory: /\n    schedule:\n      interval: weekly\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
-            ci_workflow(InitTemplate::Python, "v0.1.0"),
+            ci_workflow(InitTemplate::Python, "v0.1.1"),
         ),
         InitTemplate::Go => (
             "version: 2\nupdates:\n  - package-ecosystem: gomod\n    directory: /\n    schedule:\n      interval: weekly\n  - package-ecosystem: github-actions\n    directory: /\n    schedule:\n      interval: weekly\n",
-            ci_workflow(InitTemplate::Go, "v0.1.0"),
+            ci_workflow(InitTemplate::Go, "v0.1.1"),
         ),
     };
 
@@ -641,23 +641,23 @@ pub fn ci_snippet(template: InitTemplate, version: &str) -> Result<RunOutput> {
 fn ci_workflow(template: InitTemplate, version: &str) -> String {
     let workflow = match template {
         InitTemplate::Generic => {
-            "name: Repository Readiness\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  repo-doctor:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          fail-on: warn\n"
+            "name: Repository Readiness\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  repo-doctor:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
         }
         InitTemplate::Rust => {
-            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: dtolnay/rust-toolchain@stable\n        with:\n          components: clippy,rustfmt\n      - run: cargo fmt --all --check\n      - run: cargo clippy --all-targets --all-features -- -D warnings\n      - run: cargo test\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          fail-on: warn\n"
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: dtolnay/rust-toolchain@stable\n        with:\n          components: clippy,rustfmt\n      - run: cargo fmt --all --check\n      - run: cargo clippy --all-targets --all-features -- -D warnings\n      - run: cargo test\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
         }
         InitTemplate::Node => {
-            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-node@v6\n        with:\n          node-version: lts/*\n          cache: npm\n      - run: npm ci\n      - run: npm test --if-present\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          fail-on: warn\n"
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-node@v6\n        with:\n          node-version: lts/*\n          cache: npm\n      - run: npm ci\n      - run: npm test --if-present\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
         }
         InitTemplate::Python => {
-            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-python@v6\n        with:\n          python-version: '3.x'\n      - run: python -m pip install -U pip\n      - run: python -m pytest\n        continue-on-error: true\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          fail-on: warn\n"
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-python@v6\n        with:\n          python-version: '3.x'\n      - run: python -m pip install -U pip\n      - run: python -m pytest\n        continue-on-error: true\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
         }
         InitTemplate::Go => {
-            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-go@v6\n        with:\n          go-version: stable\n      - run: go test ./...\n      - uses: Kota-Ohno/repo-doctor@v0.1.0\n        with:\n          fail-on: warn\n"
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-go@v6\n        with:\n          go-version: stable\n      - run: go test ./...\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
         }
     };
 
-    workflow.replace("v0.1.0", version)
+    workflow.replace("v0.1.1", version)
 }
 
 pub fn check_github_repository(repo: &str, format: OutputFormat) -> Result<RunOutput> {
@@ -1060,6 +1060,12 @@ mod tests {
     #[test]
     fn rust_workspace_root_without_package_is_valid() {
         let temp_dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp_dir.path().join("crates/demo")).unwrap();
+        fs::write(
+            temp_dir.path().join("crates/demo/Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+        )
+        .unwrap();
         fs::write(
             temp_dir.path().join("Cargo.toml"),
             "[workspace]\nmembers = [\"crates/demo\"]\n",
@@ -1073,6 +1079,87 @@ mod tests {
 
         assert!(output.text.contains("[PASS] rust_workspace"));
         assert!(!output.text.contains("rust_cargo_package"));
+    }
+
+    #[test]
+    fn rust_workspace_warns_when_members_are_missing() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("Cargo.toml"),
+            "[workspace]\nmembers = [\"crates/missing\"]\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Rust, None).unwrap();
+
+        assert!(output.text.contains("[WARN] rust_workspace"));
+        assert!(output.text.contains("crates/missing"));
+    }
+
+    #[test]
+    fn rust_workspace_member_requires_manifest() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp_dir.path().join("crates/demo")).unwrap();
+        fs::write(
+            temp_dir.path().join("Cargo.toml"),
+            "[workspace]\nmembers = [\"crates/demo\"]\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Rust, None).unwrap();
+
+        assert!(output.text.contains("[WARN] rust_workspace"));
+        assert!(output.text.contains("crates/demo"));
+    }
+
+    #[test]
+    fn rust_workspace_glob_requires_matching_member() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp_dir.path().join("crates/bar")).unwrap();
+        fs::write(
+            temp_dir.path().join("Cargo.toml"),
+            "[workspace]\nmembers = [\"crates/foo*\"]\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Rust, None).unwrap();
+
+        assert!(output.text.contains("[WARN] rust_workspace"));
+
+        fs::create_dir_all(temp_dir.path().join("crates/foo-core")).unwrap();
+        fs::write(
+            temp_dir.path().join("crates/foo-core/Cargo.toml"),
+            "[package]\nname = \"foo-core\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+        )
+        .unwrap();
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Rust, None).unwrap();
+
+        assert!(output.text.contains("[PASS] rust_workspace"));
+    }
+
+    #[test]
+    fn rust_workspace_nested_glob_matches_member_manifest() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(temp_dir.path().join("crates/a/foo")).unwrap();
+        fs::write(
+            temp_dir.path().join("crates/a/foo/Cargo.toml"),
+            "[package]\nname = \"foo\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+        )
+        .unwrap();
+        fs::write(
+            temp_dir.path().join("Cargo.toml"),
+            "[workspace]\nmembers = [\"crates/*/foo\"]\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Rust, None).unwrap();
+
+        assert!(output.text.contains("[PASS] rust_workspace"));
     }
 
     #[test]
@@ -1159,13 +1246,27 @@ requires = ["setuptools"]
             "module example.com/demo\n\ngo 1.22\n",
         )
         .unwrap();
-        fs::write(temp_dir.path().join("go.sum"), "\n").unwrap();
-
         let output =
             check_repository(temp_dir.path(), OutputFormat::Text, Profile::Go, None).unwrap();
 
         assert!(output.text.contains("[PASS] go_module"));
         assert!(output.text.contains("[PASS] go_version"));
+        assert!(output.text.contains("[PASS] go_sum"));
+    }
+
+    #[test]
+    fn go_profile_warns_for_missing_go_sum_when_dependencies_exist() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("go.mod"),
+            "module example.com/demo\n\ngo 1.22\n\nrequire example.com/lib v1.2.3\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Go, None).unwrap();
+
+        assert!(output.text.contains("[WARN] go_sum"));
     }
 
     #[test]
@@ -1247,6 +1348,23 @@ requires = ["setuptools"]
 
         assert!(output.text.contains("[PASS] bun_lockfile"));
         assert!(output.text.contains("[PASS] bun_package_manager"));
+    }
+
+    #[test]
+    fn auto_bun_project_does_not_warn_for_node_lockfile() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("package.json"),
+            r#"{"name":"demo","packageManager":"bun@1.2.0","scripts":{"test":"bun test"}}"#,
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("bun.lock"), "\n").unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Auto, None).unwrap();
+
+        assert!(output.text.contains("[PASS] node_lockfile"));
+        assert!(!output.text.contains("[WARN] node_lockfile"));
     }
 
     #[test]
@@ -1499,6 +1617,23 @@ requires = ["setuptools"]
     }
 
     #[test]
+    fn generic_profile_does_not_run_rust_ci_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        write_rust_fixture(temp_dir.path());
+        fs::create_dir_all(temp_dir.path().join(".github/workflows")).unwrap();
+        fs::write(
+            temp_dir.path().join(".github/workflows/ci.yml"),
+            "on:\n  pull_request:\n  push:\npermissions: {}\njobs: {}\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Generic, None).unwrap();
+
+        assert!(!output.text.contains("github_actions_rust_ci"));
+    }
+
+    #[test]
     fn warns_when_issue_template_frontmatter_is_missing() {
         let temp_dir = tempfile::tempdir().unwrap();
         fs::create_dir_all(temp_dir.path().join(".github/ISSUE_TEMPLATE")).unwrap();
@@ -1661,6 +1796,7 @@ requires = ["setuptools"]
         assert!(list_rules().contains("readme\twarning"));
         assert!(list_rules().contains("node_lockfile\twarning\tprofile:node"));
         assert!(list_rules().contains("github_remote_topics\twarning\tremote"));
+        assert!(list_rules().contains("config_disabled_rule_reason\twarning\tconfig"));
     }
 
     #[test]
@@ -1669,6 +1805,13 @@ requires = ["setuptools"]
 
         assert!(output.text.contains("Rule: readme"));
         assert!(output.text.contains("README is present"));
+    }
+
+    #[test]
+    fn explain_rule_describes_config_rule() {
+        let output = explain_rule("config_disabled_rule_reason").unwrap();
+
+        assert!(output.text.contains("Rule: config_disabled_rule_reason"));
     }
 
     #[test]

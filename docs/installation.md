@@ -38,7 +38,7 @@ repo-doctor check --baseline repo-doctor-baseline.json --fail-on warn
 
 ```yaml
 - uses: actions/checkout@v6
-- uses: Kota-Ohno/repo-doctor@v0.1.0
+- uses: Kota-Ohno/repo-doctor@v0.1.1
   with:
     fail-on: warn
 ```
@@ -62,20 +62,20 @@ Linux and macOS:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Kota-Ohno/repo-doctor/main/scripts/install.sh | sh
-curl -fsSL https://raw.githubusercontent.com/Kota-Ohno/repo-doctor/main/scripts/install.sh | sh -s -- --version v0.1.0 --dir ~/.local/bin
+curl -fsSL https://raw.githubusercontent.com/Kota-Ohno/repo-doctor/main/scripts/install.sh | sh -s -- --version v0.1.1 --dir ~/.local/bin
 ```
 
 Windows PowerShell:
 
 ```powershell
 iwr https://raw.githubusercontent.com/Kota-Ohno/repo-doctor/main/scripts/install.ps1 -UseB | iex
-.\install.ps1 -Version v0.1.0 -InstallDir "$HOME\.repo-doctor\bin"
+.\install.ps1 -Version v0.1.1 -InstallDir "$HOME\.repo-doctor\bin"
 ```
 
-Set `REPO_DOCTOR_VERSION=v0.1.0` or `REPO_DOCTOR_INSTALL_DIR=/path/to/bin` to
+Set `REPO_DOCTOR_VERSION=v0.1.1` or `REPO_DOCTOR_INSTALL_DIR=/path/to/bin` to
 customize installation.
 
-`REPO_DOCTOR_VERSION=v0.1.0` や `REPO_DOCTOR_INSTALL_DIR=/path/to/bin` を指定すると、導入するversionやinstall先を変更できます。
+`REPO_DOCTOR_VERSION=v0.1.1` や `REPO_DOCTOR_INSTALL_DIR=/path/to/bin` を指定すると、導入するversionやinstall先を変更できます。
 
 ## Docker
 
@@ -88,7 +88,7 @@ docker run --rm -v "$PWD:/repo" ghcr.io/kota-ohno/repo-doctor:main check /repo -
 ```yaml
 repos:
   - repo: https://github.com/Kota-Ohno/repo-doctor
-    rev: v0.1.0
+    rev: v0.1.1
     hooks:
       - id: repo-doctor
 ```

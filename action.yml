@@ -3,7 +3,7 @@ description: Run repository readiness checks without installing Rust.
 inputs:
   version:
     description: Release tag to install, or latest.
-    default: latest
+    default: v0.1.1
   path:
     description: Repository path to check.
     default: .

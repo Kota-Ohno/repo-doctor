@@ -192,7 +192,6 @@ fn inspect_workflow_content(path: &Path) -> Vec<Check> {
         check_workflow_permissions(&workflows),
         check_workflow_pull_request_target(&workflows),
         check_workflow_floating_action_refs(&workflows),
-        check_rust_ci_commands(path, &workflows),
         check_dependency_update_config(path),
     ]
 }
@@ -360,38 +359,6 @@ fn check_workflow_floating_action_refs(workflows: &[(String, String)]) -> Check 
                 floating_refs.join(", ")
             ),
             "Pin action refs to version tags or commit SHAs instead of main, master, or latest.",
-        )
-    }
-}
-
-fn check_rust_ci_commands(path: &Path, workflows: &[(String, String)]) -> Check {
-    if !path.join("Cargo.toml").exists() {
-        return pass(
-            "github_actions_rust_ci",
-            "Rust CI command check is not applicable",
-        );
-    }
-
-    let all_workflows = workflows
-        .iter()
-        .map(|(_, contents)| contents.as_str())
-        .collect::<Vec<_>>()
-        .join("\n");
-    let has_fmt = all_workflows.contains("cargo fmt")
-        && (all_workflows.contains("--check") || all_workflows.contains("fmtc"));
-    let has_clippy = all_workflows.contains("cargo clippy") || all_workflows.contains("lint");
-    let has_tests = all_workflows.contains("cargo test") || all_workflows.contains("cargo nextest");
-
-    if has_fmt && has_clippy && has_tests {
-        pass(
-            "github_actions_rust_ci",
-            "GitHub Actions include Rust fmt, clippy, and test commands",
-        )
-    } else {
-        warn(
-            "github_actions_rust_ci",
-            "GitHub Actions are missing Rust fmt, clippy, or test commands",
-            "Add cargo fmt --all --check, cargo clippy, and cargo test or cargo nextest to CI.",
         )
     }
 }

@@ -13,7 +13,7 @@ export PATH="$HOME/.local/bin:$PATH"
 Downloadが途中で壊れているか、release assetが更新中の可能性があります。再実行しても失敗する場合は、対象versionを固定してください。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Kota-Ohno/repo-doctor/main/scripts/install.sh | sh -s -- --version v0.1.0
+curl -fsSL https://raw.githubusercontent.com/Kota-Ohno/repo-doctor/main/scripts/install.sh | sh -s -- --version v0.1.1
 ```
 
 ## Docker socket permission denied
@@ -38,7 +38,7 @@ repo-doctor github-auth-doctor
 指定した `version` のrelease assetが存在するか確認してください。まずは `version: latest` で試せます。
 
 ```yaml
-- uses: Kota-Ohno/repo-doctor@v0.1.0
+- uses: Kota-Ohno/repo-doctor@v0.1.1
   with:
     version: latest
     fail-on: warn

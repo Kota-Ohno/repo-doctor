@@ -39,6 +39,19 @@ jobs:
           sha256sum "$tmp/repo-doctor-$target.tar.gz" > "$tmp/repo-doctor-$target.tar.gz.sha256"
           REPO_DOCTOR_BASE_URL="file://$tmp" sh scripts/install.sh --version test --dir "$tmp/bin"
           "$tmp/bin/repo-doctor"
+      - name: Smoke test npm installer with local release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          target="x86_64-unknown-linux-gnu"
+          printf '#!/usr/bin/env sh\necho repo-doctor npm smoke\n' > "$tmp/repo-doctor"
+          chmod +x "$tmp/repo-doctor"
+          tar -C "$tmp" -czf "$tmp/repo-doctor-$target.tar.gz" repo-doctor
+          sha256sum "$tmp/repo-doctor-$target.tar.gz" > "$tmp/repo-doctor-$target.tar.gz.sha256"
+          rm -rf packaging/npm/vendor
+          REPO_DOCTOR_BASE_URL="file://$tmp" REPO_DOCTOR_TARGET="$target" node packaging/npm/scripts/install.js
+          packaging/npm/vendor/repo-doctor
       - run: ruby -e 'require "yaml"; YAML.load_file("action.yml")'
       - run: cargo run -- ci --template generic > /tmp/repo-doctor.yml
       - run: ruby -e 'require "yaml"; YAML.load_file("/tmp/repo-doctor.yml")'

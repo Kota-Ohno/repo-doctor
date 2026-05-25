@@ -13,7 +13,7 @@ Usage:
   install.sh [--version <tag>] [--dir <path>]
 
 Options:
-  --version <tag>  Release tag to install, for example v0.1.0. Default: latest
+  --version <tag>  Release tag to install, for example v0.1.1. Default: latest
   --dir <path>     Directory where repo-doctor is installed. Default: ~/.local/bin
   -h, --help       Show this help.
 EOF

@@ -111,11 +111,15 @@ impl Config {
             .collect::<Vec<_>>();
 
         configured.extend(invalid_disabled.into_iter().map(|id| {
-            warn(
+            let mut check = warn(
                 "config_disabled_rule_reason",
                 format!("Rule `{id}` is disabled without a rationale"),
                 "Add a non-empty reason to the disabled rule or remove the disabled flag.",
-            )
+            );
+            if let Some(severity) = severity_overrides.get(check.id()) {
+                check.set_severity(*severity);
+            }
+            check
         }));
 
         configured

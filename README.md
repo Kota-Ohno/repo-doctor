@@ -67,7 +67,7 @@ GitHub Actions:
 
 ```yaml
 - uses: actions/checkout@v6
-- uses: Kota-Ohno/repo-doctor@v0.1.0
+- uses: Kota-Ohno/repo-doctor@v0.1.1
   with:
     fail-on: warn
 ```

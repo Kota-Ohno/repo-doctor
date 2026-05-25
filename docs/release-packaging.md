@@ -24,5 +24,5 @@ Current scaffold files:
 Helper:
 
 ```bash
-scripts/update-packaging-checksums.sh v0.1.0
+scripts/update-packaging-checksums.sh v0.1.1
 ```

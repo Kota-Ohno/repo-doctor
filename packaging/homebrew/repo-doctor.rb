@@ -1,7 +1,7 @@
 class RepoDoctor < Formula
   desc "Local-first repository readiness checker"
   homepage "https://github.com/Kota-Ohno/repo-doctor"
-  version "0.1.0"
+  version "0.1.1"
 
   on_macos do
     if Hardware::CPU.arm?

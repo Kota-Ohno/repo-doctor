@@ -26,7 +26,6 @@ Summary: 43 passed, 0 warnings, score 100
 [PASS] github_actions_permissions: GitHub Actions permissions are declared
 [PASS] github_actions_pull_request_target: GitHub Actions avoid pull_request_target
 [PASS] github_actions_floating_refs: GitHub Actions avoid floating action refs
-[PASS] github_actions_rust_ci: GitHub Actions include Rust fmt, clippy, and test commands
 [PASS] dependency_update_config: Dependency update configuration is present
 [PASS] rust_cargo_name: Cargo package `name` is set
 [PASS] rust_cargo_version: Cargo package `version` is set
@@ -43,6 +42,7 @@ Summary: 43 passed, 0 warnings, score 100
 [PASS] rust_readme_commands: README documents Rust usage and test commands
 [PASS] rust_toolchain: Rust toolchain pin is present
 [PASS] rust_tooling_config: Rust rustfmt and clippy configs are present
+[PASS] github_actions_rust_ci: GitHub Actions include Rust fmt, clippy, and test commands
 [PASS] docker_build_file: Container build file is present
 [PASS] dockerignore: .dockerignore is present
 [PASS] docker_base_image_pin: Container base image tags avoid :latest
