@@ -70,7 +70,14 @@ jobs:
           if ! gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
             gh release create "${RELEASE_TAG}" --verify-tag --title "${RELEASE_TAG}" --notes "repo-doctor ${RELEASE_TAG}" || true
           fi
-          gh release upload "${RELEASE_TAG}" \
+          existing_assets="$(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name')"
+          for asset in \
             "repo-doctor-${{ matrix.target }}.${{ matrix.archive }}" \
-            "repo-doctor-${{ matrix.target }}.${{ matrix.archive }}.sha256" \
-            --clobber
+            "repo-doctor-${{ matrix.target }}.${{ matrix.archive }}.sha256"
+          do
+            if printf '%s\n' "${existing_assets}" | grep -Fxq "${asset}"; then
+              echo "Skipping existing release asset: ${asset}"
+            else
+              gh release upload "${RELEASE_TAG}" "${asset}"
+            fi
+          done

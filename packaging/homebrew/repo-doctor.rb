@@ -6,16 +6,16 @@ class RepoDoctor < Formula
   on_macos do
     if Hardware::CPU.arm?
       url "https://github.com/Kota-Ohno/repo-doctor/releases/download/v#{version}/repo-doctor-aarch64-apple-darwin.tar.gz"
-      sha256 "b5d50418c22e748c2269f2ec59b73d08c2ce802167b7709e481ce06361136672"
+      sha256 "8e6aa25528ee355f528cbc8f4d5a891b4460e3e511e260e13034c85b2046f6a3"
     else
       url "https://github.com/Kota-Ohno/repo-doctor/releases/download/v#{version}/repo-doctor-x86_64-apple-darwin.tar.gz"
-      sha256 "eadda7fef0ad8746ee1ad177fc424cc862daeb6676b22f583137d7d2e7af0737"
+      sha256 "8d31acbc4559445fd96dc3243886c69784f218b0f6646b13d93947cd5da01517"
     end
   end
 
   on_linux do
     url "https://github.com/Kota-Ohno/repo-doctor/releases/download/v#{version}/repo-doctor-x86_64-unknown-linux-gnu.tar.gz"
-    sha256 "a77ba5be28a68c218a848991462ff01cc14fe4e102e2bc865727223181bdb7fc"
+    sha256 "b4b846bb50c16eeae7acc64cddcd4e79acf997ce69bebb57456d50255ed454c5"
   end
 
   def install
