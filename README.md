@@ -248,6 +248,12 @@ repo-doctor guard --base origin/main --format github --fail-on warn
 repo-doctor ci --guard > .github/workflows/repo-doctor-guard.yml
 ```
 
+For AI agents, the machine-readable operating contract is documented in
+[docs/ai.md](docs/ai.md), and a Codex-compatible local skill is included at
+[skills/repo-doctor/SKILL.md](skills/repo-doctor/SKILL.md).
+
+AI agent向けの機械可読な操作仕様は [docs/ai.md](docs/ai.md) にまとめています。Codex互換のlocal skillも [skills/repo-doctor/SKILL.md](skills/repo-doctor/SKILL.md) に同梱しています。
+
 For config authoring:
 
 設定を書くとき:

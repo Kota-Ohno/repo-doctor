@@ -25,6 +25,35 @@ lists commands, supported profiles, rule IDs, output contracts, and recipes.
 
 `spec --format json` はagent向けの主要な機械可読contractです。commands、supported profiles、rule IDs、output contracts、recipesを列挙します。
 
+## Skill Usage / Skillとしての利用
+
+This repository ships a Codex-compatible skill at
+`skills/repo-doctor/SKILL.md`. Agents that support local skills should load that
+skill when the user asks about repository readiness, VibeCoding guardrails,
+AI-safe repository changes, or repo-doctor adoption.
+
+このリポジトリにはCodex互換のskillとして `skills/repo-doctor/SKILL.md` を同梱しています。local skillを扱えるagentは、repository readiness、VibeCoding guardrails、AI-safeなリポジトリ変更、repo-doctor導入について依頼されたときにこのskillを読み込みます。
+
+Recommended skill workflow:
+
+推奨skill workflow:
+
+```bash
+repo-doctor spec --format json
+repo-doctor recipes --format markdown
+repo-doctor check --format compact
+repo-doctor agent-guide --format markdown
+repo-doctor guard --fail-on warn
+```
+
+The skill's completion gate is the same as the general AI loop:
+
+skillの完了条件は通常のAI loopと同じです。
+
+```bash
+repo-doctor guard --fail-on warn
+```
+
 ## Standard Agent Loop / 標準Agent Loop
 
 ```bash

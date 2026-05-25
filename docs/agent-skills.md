@@ -8,6 +8,33 @@ Useful agent guidance for this template should stay small, concrete, and verifia
 
 推奨するローカルskill:
 
+### repo-doctor
+
+Use when checking repository readiness, adding AI/VibeCoding guardrails,
+installing repo-doctor in another repository, or deciding what an agent should
+do before finishing repository-changing work.
+
+repository readinessの確認、AI/VibeCoding guardrailsの導入、別リポジトリへのrepo-doctor導入、またはagentがリポジトリ変更作業を完了する前に何を確認すべきか判断するときに使います。
+
+- The packaged Codex-compatible skill is `skills/repo-doctor/SKILL.md`.
+- Start with `repo-doctor spec --format json` to discover commands, profiles,
+  rules, output contracts, and recipes.
+- Use `repo-doctor recipes --format markdown` to choose the right workflow.
+- Use `repo-doctor check --format compact` for the first readiness signal.
+- Use `repo-doctor agent-guide --format markdown` when `AGENTS.md` is missing
+  or too generic.
+- Treat `repo-doctor guard --fail-on warn` as the completion gate for
+  repository-changing AI work.
+
+日本語要約:
+
+- Codex互換skillは `skills/repo-doctor/SKILL.md` に同梱しています。
+- まず `repo-doctor spec --format json` で commands、profiles、rules、output contracts、recipesを発見します。
+- `repo-doctor recipes --format markdown` で目的に合うworkflowを選びます。
+- 最初のreadiness確認には `repo-doctor check --format compact` を使います。
+- `AGENTS.md` がない、または一般的すぎる場合は `repo-doctor agent-guide --format markdown` を使います。
+- AIによるリポジトリ変更作業の完了条件として `repo-doctor guard --fail-on warn` を扱います。
+
 ### Rust CLI Maintainer
 
 Use when adding or changing CLI behavior.
