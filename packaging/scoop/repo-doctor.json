@@ -6,7 +6,7 @@
   "architecture": {
     "64bit": {
       "url": "https://github.com/Kota-Ohno/repo-doctor/releases/download/v0.1.1/repo-doctor-x86_64-pc-windows-msvc.zip",
-      "hash": "TODO"
+      "hash": "21679854a045ae29c7921a4f97100377caf591843582386a639287ac2b0b00d5"
     }
   },
   "bin": "repo-doctor.exe",
