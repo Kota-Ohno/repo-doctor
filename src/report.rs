@@ -387,6 +387,11 @@ pub fn known_rules() -> Vec<RuleInfo> {
             "package.json engines.node is set",
         ),
         rule(
+            "node_package_manager",
+            "profile:node",
+            "package.json packageManager matches non-npm lockfiles",
+        ),
+        rule(
             "node_lockfile",
             "profile:node",
             "Node package manager lockfile is present",

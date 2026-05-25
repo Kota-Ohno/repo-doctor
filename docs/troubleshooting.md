@@ -68,6 +68,30 @@ gh auth refresh -s repo
 repo-doctor github-auth-doctor
 ```
 
+## `gh repo clone` uses SSH and fails
+
+If `gh repo clone` chooses an SSH URL but SSH keys are not configured, clone
+with the HTTPS URL instead:
+
+`gh repo clone` がSSH URLを選び、SSH keyが未設定の場合は、HTTPS URLでcloneしてください。
+
+```bash
+git clone https://github.com/OWNER/REPO.git
+```
+
+## pnpm GitHub Action cannot find a version
+
+`pnpm/action-setup` requires either a workflow `version` input or a
+`packageManager` field in `package.json`.
+
+`pnpm/action-setup` にはworkflow上の `version` か、`package.json` の `packageManager` が必要です。
+
+```json
+{
+  "packageManager": "pnpm@11.3.0"
+}
+```
+
 ## GitHub API permission denied
 
 Branch protection and vulnerability alert APIs may be hidden when the token
@@ -79,6 +103,12 @@ lacks permission, even if normal repository metadata is visible.
 repo-doctor github-auth-doctor
 gh auth refresh -s repo
 ```
+
+For private repositories, branch protection can also fail because of GitHub
+plan limits. GitHub may require GitHub Pro, public repository visibility,
+repository admin access, or organization policy access.
+
+private repositoryでは、branch protectionがGitHub plan制限で失敗することもあります。GitHub Pro、public repository化、repository admin権限、またはorganization policy accessが必要な場合があります。
 
 ## GitHub Action cannot find a release asset
 

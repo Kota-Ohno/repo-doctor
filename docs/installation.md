@@ -34,6 +34,9 @@ required unless you are developing repo-doctor itself.
 | Remote GitHub checks | GitHub CLI `gh` | `gh auth login`; repository read access |
 | Remote setup changes | GitHub CLI `gh` | Repository admin or equivalent permission |
 
+For private repositories, GitHub branch protection can also require GitHub Pro
+or public visibility even when the token is authenticated.
+
 | 用途 | 必要なコマンド | 権限 |
 | --- | --- | --- |
 | ローカルの `check`, `guard`, `suggest`, `init` | `PATH` 上の `repo-doctor` | 対象リポジトリdirectoryの読み取り権限 |
@@ -43,6 +46,8 @@ required unless you are developing repo-doctor itself.
 | GitHub Actions | GitHub Actions有効化 | repository contentsの読み取りworkflow権限 |
 | Remote GitHub checks | GitHub CLI `gh` | `gh auth login` 済み、repository read access |
 | Remote setup変更 | GitHub CLI `gh` | repository adminまたは同等の権限 |
+
+private repositoryのbranch protectionは、tokenが認証済みでもGitHub Proまたはpublic visibilityが必要な場合があります。
 
 Before remote GitHub checks, run:
 

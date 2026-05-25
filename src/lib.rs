@@ -1406,6 +1406,76 @@ mod tests {
     }
 
     #[test]
+    fn node_profile_warns_when_pnpm_lockfile_has_no_package_manager() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("package.json"),
+            r#"{
+  "name": "demo",
+  "version": "0.1.0",
+  "description": "Demo package",
+  "license": "MIT",
+  "repository": "https://example.com/demo",
+  "scripts": { "test": "node --test" },
+  "engines": { "node": ">=20" }
+}"#,
+        )
+        .unwrap();
+        fs::write(
+            temp_dir.path().join("pnpm-lock.yaml"),
+            "lockfileVersion: '9.0'\n",
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Node, None).unwrap();
+
+        assert!(output.text.contains("[WARN] node_package_manager"));
+        assert!(output.text.contains("packageManager is missing for pnpm"));
+    }
+
+    #[test]
+    fn node_profile_accepts_strict_referenced_tsconfigs() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            temp_dir.path().join("package.json"),
+            r#"{
+  "name": "demo",
+  "version": "0.1.0",
+  "description": "Demo package",
+  "license": "MIT",
+  "repository": "https://example.com/demo",
+  "scripts": { "test": "node --test" },
+  "engines": { "node": ">=20" },
+  "packageManager": "pnpm@11.3.0",
+  "devDependencies": { "typescript": "latest" }
+}"#,
+        )
+        .unwrap();
+        fs::write(
+            temp_dir.path().join("pnpm-lock.yaml"),
+            "lockfileVersion: '9.0'\n",
+        )
+        .unwrap();
+        fs::write(
+            temp_dir.path().join("tsconfig.json"),
+            r#"{"files":[],"references":[{"path":"./tsconfig.app.json"}]}"#,
+        )
+        .unwrap();
+        fs::write(
+            temp_dir.path().join("tsconfig.app.json"),
+            r#"{"compilerOptions":{"strict":true}}"#,
+        )
+        .unwrap();
+
+        let output =
+            check_repository(temp_dir.path(), OutputFormat::Text, Profile::Node, None).unwrap();
+
+        assert!(output.text.contains("[PASS] node_typescript_config"));
+        assert!(!output.text.contains("[WARN] node_typescript_config"));
+    }
+
+    #[test]
     fn explicit_python_profile_runs_python_checks() {
         let temp_dir = tempfile::tempdir().unwrap();
         fs::write(
@@ -2535,6 +2605,7 @@ disabled = true
         .unwrap();
 
         assert!(output.text.contains("profiles = [\"auto\"]"));
+        assert!(!output.text.contains("presets = [\"vibe\"]"));
         assert!(!temp_dir.path().join("repo-doctor.toml").exists());
     }
 

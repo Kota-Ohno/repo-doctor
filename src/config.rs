@@ -13,8 +13,10 @@ pub(crate) const STARTER_CONFIG: &str = r#"# repo-doctor configuration
 
 # Policy presets tune generic rules without changing the report schema.
 # presets = ["oss"]
-# For AI/VibeCoding guardrail use, prefer `repo-doctor guard --fail-on warn`
-# with `presets = ["vibe"]`.
+# For private/internal repositories, `presets = ["internal"]` suppresses
+# public community-file requirements while keeping core checks active.
+# AI/VibeCoding guardrails do not require a preset; run
+# `repo-doctor guard --fail-on warn`.
 
 # File-based findings with matching locations are removed after checking.
 # exclude_paths = ["vendor/*", "generated/*"]

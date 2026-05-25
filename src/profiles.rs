@@ -736,6 +736,7 @@ fn inspect_node(path: &Path) -> Vec<Check> {
         check_json_present(&parsed, "node_repository", "repository", "package.json"),
         check_node_test_script(&parsed),
         check_node_engines(&parsed),
+        check_node_package_manager(path, &parsed),
         check_node_lockfile(path),
         check_typescript_config(path, &parsed),
         check_node_lint_and_format(path, &parsed),
@@ -809,6 +810,54 @@ fn check_node_engines(package: &JsonValue) -> Check {
     }
 }
 
+fn check_node_package_manager(path: &Path, package: &JsonValue) -> Check {
+    let expected = if path.join("pnpm-lock.yaml").exists() {
+        Some("pnpm")
+    } else if path.join("yarn.lock").exists() {
+        Some("yarn")
+    } else if path.join("bun.lock").exists() || path.join("bun.lockb").exists() {
+        Some("bun")
+    } else {
+        None
+    };
+
+    let Some(expected) = expected else {
+        return pass(
+            "node_package_manager",
+            "packageManager check is not applicable",
+        );
+    };
+
+    let package_manager = package
+        .get("packageManager")
+        .and_then(JsonValue::as_str)
+        .unwrap_or_default()
+        .trim();
+
+    if package_manager.starts_with(&format!("{expected}@")) {
+        pass(
+            "node_package_manager",
+            "package.json packageManager matches the lockfile",
+        )
+    } else if package_manager.is_empty() {
+        warn(
+            "node_package_manager",
+            format!("package.json packageManager is missing for {expected}"),
+            format!(
+                "Set `packageManager` in package.json, for example `{expected}@<version>`, so CI setup actions can install the right package manager."
+            ),
+        )
+    } else {
+        warn(
+            "node_package_manager",
+            format!(
+                "package.json packageManager `{package_manager}` does not match {expected} lockfile"
+            ),
+            format!("Set `packageManager` to a {expected} version or use the matching lockfile."),
+        )
+    }
+}
+
 fn check_node_lockfile(path: &Path) -> Check {
     let candidates = [
         "package-lock.json",
@@ -854,11 +903,7 @@ fn check_typescript_config(path: &Path, package: &JsonValue) -> Check {
             );
         }
     };
-    let strict = config
-        .get("compilerOptions")
-        .and_then(|options| options.get("strict"))
-        .and_then(JsonValue::as_bool)
-        .unwrap_or(false);
+    let strict = tsconfig_strict_enabled(path, &config);
 
     if strict {
         pass(
@@ -872,6 +917,44 @@ fn check_typescript_config(path: &Path, package: &JsonValue) -> Check {
             "Set compilerOptions.strict = true in tsconfig.json.",
         )
     }
+}
+
+fn tsconfig_strict_enabled(path: &Path, config: &JsonValue) -> bool {
+    if config
+        .get("compilerOptions")
+        .and_then(|options| options.get("strict"))
+        .and_then(JsonValue::as_bool)
+        .unwrap_or(false)
+    {
+        return true;
+    }
+
+    config
+        .get("references")
+        .and_then(JsonValue::as_array)
+        .is_some_and(|references| {
+            references.iter().any(|reference| {
+                let Some(reference_path) = reference.get("path").and_then(JsonValue::as_str) else {
+                    return false;
+                };
+                let reference_path = path.join(reference_path);
+                let mut candidates = if reference_path.extension().is_some() {
+                    vec![reference_path]
+                } else {
+                    vec![
+                        reference_path.join("tsconfig.json"),
+                        reference_path.with_extension("json"),
+                    ]
+                };
+                candidates.dedup();
+
+                candidates.into_iter().any(|config_path| {
+                    read_json(config_path)
+                        .as_ref()
+                        .is_some_and(|config| tsconfig_strict_enabled(path, config))
+                })
+            })
+        })
 }
 
 fn check_node_lint_and_format(path: &Path, package: &JsonValue) -> Check {

@@ -122,7 +122,12 @@ pub(crate) fn setup(
             "-F",
             "restrictions=null",
             "--silent",
-        ])?;
+        ])
+        .with_context(|| {
+            format!(
+                "failed to enable branch protection for {repo}/{branch}; private repositories may require GitHub Pro, public visibility, repository admin access, or organization policy access"
+            )
+        })?;
         actions.push(format!("enabled branch protection for {branch}"));
     }
 
@@ -365,7 +370,7 @@ fn check_branch_protection(repo: &str, branch: &str) -> Check {
         warn(
             "github_remote_branch_protection",
             "Default branch protection is not enabled or not visible",
-            "Enable branch protection for the default branch, or run with a token that can read it.",
+            "Enable branch protection for the default branch. Private repositories may require GitHub Pro, public visibility, repository admin access, or organization policy access.",
         )
     }
 }
