@@ -12,6 +12,21 @@ repo-doctor ci --template generic > .github/workflows/repo-doctor.yml
 repo-doctor check --fail-on warn
 ```
 
+## VibeCoding Guardrails / VibeCodingガードレール
+
+```bash
+repo-doctor guard --fail-on warn
+repo-doctor guard --base origin/main --format github --fail-on warn
+repo-doctor ci --guard > .github/workflows/repo-doctor-guard.yml
+```
+
+Use this when AI agents are making repository changes. It checks the full
+repository and adds diff-aware warnings for newly added secret-like files,
+removed tests, changed CI guardrails, dependency manifests without lockfile
+updates, and weak or missing `AGENTS.md` instructions.
+
+AI agentがリポジトリを変更する場合に使います。リポジトリ全体の確認に加えて、secret-like fileの追加、test削除、CI guardrail変更、lockfile未更新、弱い/不足した `AGENTS.md` を差分ベースで警告します。
+
 ## Rust CLI
 
 ```bash

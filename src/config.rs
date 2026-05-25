@@ -13,6 +13,8 @@ pub(crate) const STARTER_CONFIG: &str = r#"# repo-doctor configuration
 
 # Policy presets tune generic rules without changing the report schema.
 # presets = ["oss"]
+# For AI/VibeCoding guardrail use, prefer `repo-doctor guard --fail-on warn`
+# with `presets = ["vibe"]`.
 
 # File-based findings with matching locations are removed after checking.
 # exclude_paths = ["vendor/*", "generated/*"]
@@ -48,6 +50,7 @@ enum Preset {
     Oss,
     Internal,
     Strict,
+    Vibe,
 }
 
 #[derive(Debug, Deserialize)]
@@ -138,6 +141,7 @@ impl Config {
                         Preset::Oss => "oss",
                         Preset::Internal => "internal",
                         Preset::Strict => "strict",
+                        Preset::Vibe => "vibe",
                     })
                     .collect::<Vec<_>>()
                     .join(", ")
@@ -188,7 +192,7 @@ impl Config {
             .iter()
             .filter_map(|preset| match preset {
                 Preset::RustCli | Preset::RustLib => Some(Profile::Rust),
-                Preset::Oss | Preset::Internal | Preset::Strict => None,
+                Preset::Oss | Preset::Internal | Preset::Strict | Preset::Vibe => None,
             })
             .collect()
     }
@@ -207,7 +211,7 @@ impl Config {
                     disabled.insert("pull_request_template");
                     disabled.insert("changelog");
                 }
-                Preset::RustCli | Preset::Oss | Preset::Strict => {}
+                Preset::RustCli | Preset::Oss | Preset::Strict | Preset::Vibe => {}
             }
         }
 

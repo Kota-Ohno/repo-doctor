@@ -157,6 +157,7 @@ Backlogは優先度別に整理しています。完了済み項目は `[x]` で
 - [x] Add `repo-doctor init` to generate a starter config.
 - [x] Add named policy presets such as `rust-cli`, `rust-lib`, `oss`,
       `internal`, and `strict`.
+- [x] Add a `vibe` preset marker for AI/VibeCoding guardrail adoption.
 
 ### P2 - Automation outputs
 
@@ -164,6 +165,24 @@ Backlogは優先度別に整理しています。完了済み項目は `[x]` で
 - [x] Add GitHub Actions annotation output.
 - [x] Add SARIF output after rule IDs and locations are stable.
 - [x] Add file paths and line numbers where parsers provide them.
+
+### P1 - AI/VibeCoding guardrails
+
+- [x] Add `repo-doctor guard` as a dedicated guardrail command.
+- [x] Reuse standard JSON, SARIF, GitHub annotation, JUnit, markdown, HTML, and
+      compact outputs for guard mode.
+- [x] Inspect Git working-tree, staged, and optional `--base` diffs.
+- [x] Warn on newly added secret-like files.
+- [x] Warn on changed CI workflows and dependency update automation.
+- [x] Warn on removed workflows, security files, dependency automation, and
+      repo-doctor config.
+- [x] Warn on deleted test files.
+- [x] Warn on dependency manifest changes without matching lockfile updates.
+- [x] Warn on unusually large change sets.
+- [x] Check `AGENTS.md` presence, verification commands, and editing
+      boundaries.
+- [x] Generate a guardrail GitHub Actions workflow with `repo-doctor ci
+      --guard`.
 
 ### P3 - Remote GitHub checks
 

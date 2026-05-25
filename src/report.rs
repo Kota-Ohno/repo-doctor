@@ -171,6 +171,56 @@ pub fn known_rules() -> Vec<RuleInfo> {
             "config",
             "Disabled rules include a rationale",
         ),
+        rule(
+            "guard_git_diff",
+            "guard",
+            "Guard mode can inspect Git changes",
+        ),
+        rule(
+            "guard_large_change_set",
+            "guard",
+            "Guard mode flags unusually large change sets",
+        ),
+        rule(
+            "guard_secret_added",
+            "guard",
+            "Guard mode blocks newly added secret-like files",
+        ),
+        rule(
+            "guard_ci_modified",
+            "guard",
+            "Guard mode highlights CI and dependency automation changes",
+        ),
+        rule(
+            "guard_guardrail_removed",
+            "guard",
+            "Guard mode detects removed repository guardrail files",
+        ),
+        rule(
+            "guard_tests_deleted",
+            "guard",
+            "Guard mode detects deleted test files",
+        ),
+        rule(
+            "guard_lockfile_sync",
+            "guard",
+            "Guard mode detects manifest changes without lockfile updates",
+        ),
+        rule(
+            "agent_instructions",
+            "guard",
+            "Agent instructions are present",
+        ),
+        rule(
+            "agent_verification",
+            "guard",
+            "Agent instructions document verification commands",
+        ),
+        rule(
+            "agent_boundaries",
+            "guard",
+            "Agent instructions document editing boundaries",
+        ),
         RuleInfo {
             id: "rust_cargo_name",
             severity: "warning",

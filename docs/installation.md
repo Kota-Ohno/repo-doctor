@@ -14,6 +14,7 @@ Try it locally without writing files:
 repo-doctor suggest
 repo-doctor check --format compact
 repo-doctor check --format summary
+repo-doctor guard --fail-on warn
 ```
 
 Add CI without hand-writing YAML:
@@ -23,6 +24,7 @@ YAMLを手書きせずにCIを追加する:
 ```bash
 mkdir -p .github/workflows
 repo-doctor ci --template generic > .github/workflows/repo-doctor.yml
+repo-doctor ci --guard > .github/workflows/repo-doctor-guard.yml
 ```
 
 Adopt gradually in an existing repository:
@@ -41,6 +43,19 @@ repo-doctor check --baseline repo-doctor-baseline.json --fail-on warn
 - uses: Kota-Ohno/repo-doctor@v0.1.1
   with:
     fail-on: warn
+```
+
+VibeCoding guardrail workflow:
+
+VibeCoding向けのガードレールworkflow:
+
+```yaml
+- uses: actions/checkout@v6
+  with:
+    fetch-depth: 0
+- uses: Kota-Ohno/repo-doctor@v0.1.1
+  with:
+    args: guard --base origin/main --format github --fail-on warn
 ```
 
 Common inputs:
@@ -105,7 +120,7 @@ package manager向けの雛形は `packaging/` にあります。
 - `packaging/npm/`
 - `packaging/binstall/README.md`
 
-The Homebrew and Scoop manifests contain `TODO` checksums until the first real
-release assets are published.
+The Homebrew and Scoop manifests are updated from published release checksum
+assets.
 
-HomebrewとScoopのmanifestは、実際のrelease assetsが公開されるまでchecksumを `TODO` のままにしています。
+HomebrewとScoopのmanifestは、公開済みrelease checksum assetsから更新します。

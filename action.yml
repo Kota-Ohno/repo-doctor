@@ -1,5 +1,5 @@
 name: repo-doctor
-description: Run repository readiness checks without installing Rust.
+description: Run repository readiness and VibeCoding guardrail checks without installing Rust.
 inputs:
   version:
     description: Release tag to install, or latest.
@@ -35,7 +35,7 @@ inputs:
     description: Optional SARIF report path to write.
     default: ""
   args:
-    description: Override arguments passed to repo-doctor.
+    description: Override arguments passed to repo-doctor, for example guard --fail-on warn.
     default: ""
 runs:
   using: composite

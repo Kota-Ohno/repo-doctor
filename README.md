@@ -25,6 +25,7 @@ files and ecosystem-specific metadata are present. It currently checks for:
 - Deno and Bun metadata for TypeScript/JavaScript runtimes
 - .NET, PHP, Ruby, C/C++, Swift, and Kotlin project metadata
 - frontend framework, Terraform/OpenTofu, and docs-site metadata
+- AI/VibeCoding guardrails for Git diffs and `AGENTS.md`
 
 By default, `check` runs core repository checks plus auto-detected ecosystem
 profiles. Use `--profile generic` for language-independent checks only, or
@@ -108,6 +109,7 @@ repo-doctor check --format compact
 repo-doctor check --format junit
 repo-doctor check --format html
 repo-doctor check --format summary
+repo-doctor guard --fail-on warn
 repo-doctor check --format html --output repo-doctor.html
 repo-doctor check --config repo-doctor.toml
 repo-doctor check --baseline repo-doctor-baseline.json
@@ -139,6 +141,7 @@ repo-doctor baseline > repo-doctor-baseline.json
 repo-doctor batch repos.txt
 repo-doctor suggest
 repo-doctor ci --template node
+repo-doctor ci --guard
 repo-doctor explain readme
 repo-doctor config-validate repo-doctor.toml
 repo-doctor config-explain
@@ -225,6 +228,19 @@ repo-doctor check --format compact --min-score 90
 repo-doctor check --format junit > repo-doctor-junit.xml
 repo-doctor check --format html > repo-doctor.html
 repo-doctor check --format summary
+```
+
+For AI/VibeCoding guardrails, use `guard`. It runs normal readiness checks and
+adds Git-diff checks for newly added secret-like files, CI guardrail changes,
+removed tests, manifest changes without lockfile updates, oversized changes, and
+`AGENTS.md` quality.
+
+AI/VibeCoding のガードレールとして使う場合は `guard` を使います。通常のreadiness checkに加えて、Git差分から、secret-like fileの追加、CI guardrail変更、test削除、lockfile未更新、巨大差分、`AGENTS.md` の品質を確認します。
+
+```bash
+repo-doctor guard --fail-on warn
+repo-doctor guard --base origin/main --format github --fail-on warn
+repo-doctor ci --guard > .github/workflows/repo-doctor-guard.yml
 ```
 
 For config authoring:
