@@ -231,6 +231,17 @@ fn recipe_catalog() -> &'static [Recipe] {
             ],
             success: "The chosen template installs the required ecosystem toolchain before repo-doctor runs.",
         },
+        Recipe {
+            id: "profile-smoke",
+            goal: "Validate broad profile behavior against generated fixtures",
+            when_to_use: "Before merging profile, rule, CI-template, or guard changes",
+            commands: &[
+                "scripts/profile-smoke.sh",
+                "scripts/distribution-smoke.sh",
+                "repo-doctor guard --fail-on warn",
+            ],
+            success: "Generated fixtures pass readiness checks and distribution surfaces are intact.",
+        },
     ]
 }
 
@@ -248,6 +259,7 @@ fn spec_markdown() -> String {
         "",
         "```bash",
         "repo-doctor spec --format json",
+        "repo-doctor preflight --format json",
         "repo-doctor recipes --format markdown",
         "repo-doctor agent-guide --format markdown",
         "repo-doctor guard --fail-on warn",
@@ -315,6 +327,7 @@ fn agent_guide_markdown(profiles: &[Profile], commands: &[&'static str]) -> Stri
     .map(str::to_owned)
     .collect::<Vec<_>>();
     lines.extend(commands.iter().map(|command| (*command).to_owned()));
+    lines.push("repo-doctor preflight --format json".to_owned());
     lines.push("repo-doctor guard --fail-on warn".to_owned());
     lines.push("```".to_owned());
     lines.push(String::new());

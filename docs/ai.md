@@ -27,6 +27,7 @@ checks need only `repo-doctor` and repository read access. Remote checks need
 
 ```bash
 repo-doctor --version
+repo-doctor preflight --format json
 repo-doctor github-auth-doctor
 ```
 
@@ -61,6 +62,7 @@ repo-doctor guard --fail-on warn
 
 ```bash
 repo-doctor check --format summary
+repo-doctor preflight --format json
 repo-doctor recipes --format markdown
 repo-doctor agent-guide --format markdown
 repo-doctor guard --fail-on warn
@@ -84,6 +86,16 @@ behavior constraints suitable for `AGENTS.md`.
 ```bash
 repo-doctor ci --template generic > .github/workflows/repo-doctor.yml
 repo-doctor ci --guard > .github/workflows/repo-doctor-guard.yml
+```
+
+## Smoke Checks
+
+Before finishing repo-doctor profile, rule, CI-template, install, or release
+work, agents should run:
+
+```bash
+scripts/profile-smoke.sh
+scripts/distribution-smoke.sh
 ```
 
 The readiness workflow checks repository hygiene. The guard workflow checks

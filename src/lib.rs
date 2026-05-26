@@ -758,8 +758,41 @@ fn interactive_init_options(mut options: InitOptions) -> Result<InitOptions> {
     std::io::stdout().flush()?;
     std::io::stdin().read_line(&mut answer)?;
     options.full = matches!(answer.trim(), "y" | "Y" | "yes" | "YES");
+
+    answer.clear();
+    print!(
+        "Template [generic/rust/node/python/go/deno/bun/jvm/dotnet/php/ruby/swift/cpp/docker/iac/docs] "
+    );
+    std::io::stdout().flush()?;
+    std::io::stdin().read_line(&mut answer)?;
+    if let Some(template) = parse_init_template(answer.trim()) {
+        options.template = template;
+    }
+
     options.yes = true;
     Ok(options)
+}
+
+fn parse_init_template(value: &str) -> Option<InitTemplate> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "" | "generic" => Some(InitTemplate::Generic),
+        "rust" => Some(InitTemplate::Rust),
+        "node" => Some(InitTemplate::Node),
+        "python" => Some(InitTemplate::Python),
+        "go" => Some(InitTemplate::Go),
+        "deno" => Some(InitTemplate::Deno),
+        "bun" => Some(InitTemplate::Bun),
+        "jvm" => Some(InitTemplate::Jvm),
+        "dotnet" | ".net" => Some(InitTemplate::Dotnet),
+        "php" => Some(InitTemplate::Php),
+        "ruby" => Some(InitTemplate::Ruby),
+        "swift" => Some(InitTemplate::Swift),
+        "cpp" | "c++" => Some(InitTemplate::Cpp),
+        "docker" => Some(InitTemplate::Docker),
+        "iac" | "terraform" | "tofu" => Some(InitTemplate::Iac),
+        "docs" => Some(InitTemplate::Docs),
+        _ => None,
+    }
 }
 
 struct InitFile {
@@ -983,11 +1016,32 @@ pub fn explain_rule(rule_id: &str) -> Result<RunOutput> {
 
     Ok(RunOutput {
         text: format!(
-            "Rule: {}\nSeverity: {}\nPurpose: {}\nRemediation: Run `repo-doctor check --warnings-only` for concrete findings, or disable this rule in repo-doctor.toml with a rationale when it does not apply.",
-            rule.id, rule.severity, rule.description
+            "Rule: {}\nCategory: {}\nSeverity: {}\nPurpose: {}\nTriage: {}\nRemediation: Run `repo-doctor check --warnings-only` for concrete findings, choose a shape preset when the rule is expected for this project type, baseline existing debt for gradual adoption, or disable this rule in repo-doctor.toml with a rationale when it does not apply.\nDocs: docs/rules.md",
+            rule.id,
+            rule.category,
+            rule.severity,
+            rule.description,
+            rule_triage_hint(rule.category)
         ),
         exit_code: 0,
     })
+}
+
+fn rule_triage_hint(category: &str) -> &'static str {
+    match category {
+        "core" => {
+            "core repository hygiene; usually fix or document why internal-only repositories differ"
+        }
+        "ci" => "CI safety; usually fix before enforcing repo-doctor in pull requests",
+        "guard" => "AI/VibeCoding diff guardrail; fix in the same change or add explicit rationale",
+        "remote" => {
+            "GitHub remote posture; may require gh auth, admin permissions, or paid-plan features"
+        }
+        category if category.starts_with("profile:") => {
+            "ecosystem-specific readiness; use app/library presets when project shape changes expectations"
+        }
+        _ => "review the finding and choose fix, preset, baseline, or rationale",
+    }
 }
 
 pub fn validate_config_file(path: &Path) -> Result<RunOutput> {
@@ -1049,9 +1103,13 @@ pub fn suggest_next_steps(path: &Path) -> Result<RunOutput> {
                 "repo-doctor suggestion",
                 "Status: no warnings found.",
                 "Next steps:",
-                "1. Add repo-doctor to CI:",
+                "1. Run local adoption preflight:",
+                "   repo-doctor preflight --format json",
+                "2. Generate profile-aware agent instructions:",
+                "   repo-doctor agent-guide --format markdown",
+                "3. Add repo-doctor to CI:",
                 "   repo-doctor ci --template generic > .github/workflows/repo-doctor.yml",
-                "2. Keep the quality gate strict:",
+                "4. Keep the quality gate strict:",
                 "   repo-doctor check --fail-on warn",
             ]
             .join("\n"),
@@ -1083,9 +1141,11 @@ pub fn suggest_next_steps(path: &Path) -> Result<RunOutput> {
     }
 
     lines.push("Adopt gradually:".to_owned());
+    lines.push("  repo-doctor preflight --format json".to_owned());
     lines.push("  repo-doctor baseline > repo-doctor-baseline.json".to_owned());
     lines
         .push("  repo-doctor check --baseline repo-doctor-baseline.json --fail-on warn".to_owned());
+    lines.push("If warnings are expected for the project shape, choose a preset such as python-lib, php-package, ruby-gem, cpp-lib, or docker-job before disabling rules.".to_owned());
 
     Ok(RunOutput {
         text: lines.join("\n"),
@@ -2529,6 +2589,7 @@ requires = ["hatchling"]
 
         assert!(output.text.contains("# repo-doctor AI recipes"));
         assert!(output.text.contains("vibecoding-guard"));
+        assert!(output.text.contains("profile-smoke"));
         assert!(output.text.contains("repo-doctor guard --fail-on warn"));
     }
 
@@ -2542,6 +2603,7 @@ requires = ["hatchling"]
 
         assert!(output.text.contains("rust"));
         assert!(output.text.contains("cargo test"));
+        assert!(output.text.contains("repo-doctor preflight --format json"));
         assert!(output.text.contains("repo-doctor guard --fail-on warn"));
     }
 
@@ -2778,6 +2840,7 @@ requires = ["hatchling"]
         assert!(list_rules().contains("readme\twarning"));
         assert!(list_rules().contains("node_lockfile\twarning\tprofile:node"));
         assert!(list_rules().contains("github_remote_topics\twarning\tremote"));
+        assert!(list_rules().contains("github_remote_rulesets\twarning\tremote"));
         assert!(list_rules().contains("config_disabled_rule_reason\twarning\tconfig"));
         assert!(list_rules().contains("guard_secret_added\twarning\tguard"));
         assert!(list_rules().contains("agent_verification\twarning\tguard"));
@@ -2790,6 +2853,8 @@ requires = ["hatchling"]
         let output = explain_rule("readme").unwrap();
 
         assert!(output.text.contains("Rule: readme"));
+        assert!(output.text.contains("Category: core"));
+        assert!(output.text.contains("Triage:"));
         assert!(output.text.contains("README is present"));
     }
 
@@ -3151,6 +3216,7 @@ disabled = true
         let output = suggest_next_steps(temp_dir.path()).unwrap();
 
         assert!(output.text.contains("repo-doctor suggestion"));
+        assert!(output.text.contains("repo-doctor preflight --format json"));
         assert!(output.text.contains("readme"));
         assert!(output.text.contains("Adopt gradually"));
     }

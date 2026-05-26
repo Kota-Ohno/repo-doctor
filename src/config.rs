@@ -13,6 +13,9 @@ pub(crate) const STARTER_CONFIG: &str = r#"# repo-doctor configuration
 
 # Policy presets tune generic rules without changing the report schema.
 # presets = ["oss"]
+# Shape presets reduce expected noise for common project types:
+# python-app, python-lib, node-app, node-lib, php-app, php-package,
+# ruby-app, ruby-gem, cpp-app, cpp-lib, docker-service, docker-job.
 # For private/internal repositories, `presets = ["internal"]` suppresses
 # public community-file requirements while keeping core checks active.
 # AI/VibeCoding guardrails do not require a preset; run

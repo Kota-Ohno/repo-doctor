@@ -27,6 +27,9 @@ pub(crate) fn inspect(repo: &str) -> Result<Report> {
     }
 
     checks.push(check_vulnerability_alerts(repo));
+    checks.push(check_dependabot_config(repo));
+    checks.push(check_actions_permissions(repo));
+    checks.push(check_repository_rulesets(repo));
     checks.extend(check_community_profile(repo));
     checks.push(check_scorecard_link(repo));
     checks.push(check_latest_release(repo));
@@ -387,6 +390,94 @@ fn check_vulnerability_alerts(repo: &str) -> Check {
             "github_remote_vulnerability_alerts",
             "Dependabot vulnerability alerts are disabled or not visible",
             "Enable Dependabot alerts, or run with a token that can read security settings.",
+        )
+    }
+}
+
+fn check_dependabot_config(repo: &str) -> Check {
+    let endpoint = format!("repos/{repo}/contents/.github/dependabot.yml");
+    if gh_status(&["api", &endpoint, "--silent"])
+        || gh_status(&[
+            "api",
+            &format!("repos/{repo}/contents/.github/dependabot.yaml"),
+            "--silent",
+        ])
+    {
+        pass(
+            "github_remote_dependabot_config",
+            "Dependabot configuration is present",
+        )
+    } else {
+        warn(
+            "github_remote_dependabot_config",
+            "Dependabot configuration is missing or not visible",
+            "Add .github/dependabot.yml or confirm dependency updates are handled elsewhere.",
+        )
+    }
+}
+
+fn check_actions_permissions(repo: &str) -> Check {
+    let endpoint = format!("repos/{repo}/actions/permissions");
+    let Ok(permissions) = gh_json(&["api", &endpoint]) else {
+        return warn(
+            "github_remote_actions_permissions",
+            "GitHub Actions permissions are unavailable",
+            "Run with a token that can read Actions settings, or inspect repository Actions permissions in GitHub.",
+        );
+    };
+
+    let enabled = permissions
+        .get("enabled")
+        .and_then(JsonValue::as_bool)
+        .unwrap_or(false);
+    let default_permissions = permissions
+        .get("default_workflow_permissions")
+        .and_then(JsonValue::as_str)
+        .unwrap_or("");
+
+    if enabled && default_permissions == "read" {
+        pass(
+            "github_remote_actions_permissions",
+            "GitHub Actions are enabled with read-only default token permissions",
+        )
+    } else if enabled {
+        warn(
+            "github_remote_actions_permissions",
+            format!("GitHub Actions default token permissions are `{default_permissions}`"),
+            "Prefer read-only default workflow permissions and grant write permissions per workflow job.",
+        )
+    } else {
+        warn(
+            "github_remote_actions_permissions",
+            "GitHub Actions are disabled",
+            "Enable GitHub Actions if this repository should run CI.",
+        )
+    }
+}
+
+fn check_repository_rulesets(repo: &str) -> Check {
+    let endpoint = format!("repos/{repo}/rulesets");
+    let Ok(rulesets) = gh_json(&["api", &endpoint]) else {
+        return warn(
+            "github_remote_rulesets",
+            "Repository rulesets are unavailable",
+            "Run with a token that can read rulesets, or inspect branch/tag rulesets in GitHub.",
+        );
+    };
+
+    if rulesets
+        .as_array()
+        .is_some_and(|rulesets| !rulesets.is_empty())
+    {
+        pass(
+            "github_remote_rulesets",
+            "Repository rulesets are configured",
+        )
+    } else {
+        warn(
+            "github_remote_rulesets",
+            "Repository rulesets are not configured",
+            "Use branch protection or repository rulesets to protect important branches and tags.",
         )
     }
 }

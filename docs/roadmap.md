@@ -30,6 +30,21 @@ instead of becoming a clone of OpenSSF Scorecard or a full SCM security scanner.
 - Integrate mature scanners instead of reimplementing deep vulnerability,
   secret, or license analysis.
 
+## Current development direction
+
+現在の開発方針:
+
+- Optimize for trust over breadth: fewer noisy warnings, clearer remediation,
+  and realistic project-shape handling.
+- Validate every supported profile through fixture smoke tests, not only unit
+  tests.
+- Treat distribution paths as product surfaces: GitHub Action, install scripts,
+  Docker, npm wrapper, and generated CI must be smoke-tested before release.
+- Keep AI operation first-class: `spec`, `recipes`, `agent-guide`, `preflight`,
+  and `guard` should give agents enough structure to adopt repo-doctor without
+  guessing.
+- Keep remote GitHub checks explicit and permission-aware.
+
 ## Backlog
 
 Backlogは優先度別に整理しています。完了済み項目は `[x]` で示します。

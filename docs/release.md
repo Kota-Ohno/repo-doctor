@@ -30,6 +30,8 @@ Run the local distribution preflight before pushing a release tag:
 release tagをpushする前に、local distribution preflightを実行します。
 
 ```bash
+scripts/profile-smoke.sh
+scripts/distribution-smoke.sh
 scripts/release-preflight.sh
 ```
 
@@ -41,12 +43,14 @@ When validating an already-created local tag:
 scripts/release-preflight.sh --require-tag
 ```
 
-The preflight builds a release binary, creates local release-like assets,
+The smoke scripts exercise generated profile fixtures, CI snippets, install
+surfaces, the npm wrapper, and optional Docker usage before the heavier release
+preflight runs. The preflight builds a release binary, creates local release-like assets,
 verifies checksums, exercises `scripts/install.sh` through `file://` assets,
 exercises the npm wrapper installer, checks version consistency, and runs
 `repo-doctor guard`.
 
-このpreflightはrelease binaryをbuildし、local release相当のassetsを作成し、checksumを検証し、`file://` assets経由で `scripts/install.sh` とnpm wrapper installerを実行し、version整合性を確認し、`repo-doctor guard` を実行します。
+smoke scriptは、重いrelease preflightの前にprofile fixture、CI snippet、install surface、npm wrapper、任意のDocker利用を確認します。このpreflightはrelease binaryをbuildし、local release相当のassetsを作成し、checksumを検証し、`file://` assets経由で `scripts/install.sh` とnpm wrapper installerを実行し、version整合性を確認し、`repo-doctor guard` を実行します。
 
 If Node.js is installed outside `PATH`, pass it explicitly:
 

@@ -122,6 +122,8 @@ repo-doctor check --format junit
 repo-doctor check --format html
 repo-doctor check --format summary
 repo-doctor guard --fail-on warn
+scripts/profile-smoke.sh
+scripts/distribution-smoke.sh
 repo-doctor check --format html --output repo-doctor.html
 repo-doctor check --config repo-doctor.toml
 repo-doctor check --baseline repo-doctor-baseline.json

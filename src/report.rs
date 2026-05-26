@@ -770,6 +770,21 @@ pub fn known_rules() -> Vec<RuleInfo> {
             "GitHub vulnerability alerts are enabled",
         ),
         rule(
+            "github_remote_dependabot_config",
+            "remote",
+            "GitHub Dependabot configuration is present",
+        ),
+        rule(
+            "github_remote_actions_permissions",
+            "remote",
+            "GitHub Actions repository permissions are least-privilege",
+        ),
+        rule(
+            "github_remote_rulesets",
+            "remote",
+            "GitHub repository rulesets are configured",
+        ),
+        rule(
             "github_remote_community_profile",
             "remote",
             "GitHub community profile is available",
