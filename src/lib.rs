@@ -199,6 +199,14 @@ pub enum Command {
         /// Repository directory to inspect.
         #[arg(default_value = ".")]
         path: PathBuf,
+
+        /// Profile to use for suggestions.
+        #[arg(long, value_enum, default_value_t = Profile::Auto)]
+        profile: Profile,
+
+        /// Comma-separated profiles to use for suggestions. Overrides --profile when provided.
+        #[arg(long, value_enum, value_delimiter = ',')]
+        profiles: Vec<Profile>,
     },
 
     /// Print an AI-readable product and automation specification.
@@ -441,7 +449,11 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             version,
             guard,
         } => ci_snippet_with_options(template, &version, guard),
-        Command::Suggest { path } => suggest_next_steps(&path),
+        Command::Suggest {
+            path,
+            profile,
+            profiles,
+        } => suggest_next_steps_with_profiles(&path, profile, &profiles),
         Command::Spec { format } => ai::spec(format),
         Command::Recipes { format } => ai::recipes(format),
         Command::AgentGuide {
@@ -1179,25 +1191,37 @@ pub fn explain_config(path: &Path) -> Result<RunOutput> {
 }
 
 pub fn suggest_next_steps(path: &Path) -> Result<RunOutput> {
+    suggest_next_steps_with_profiles(path, Profile::Auto, &[])
+}
+
+pub fn suggest_next_steps_with_profiles(
+    path: &Path,
+    profile: Profile,
+    explicit_profiles: &[Profile],
+) -> Result<RunOutput> {
     validate_repository_path(path)?;
     let config = config::load(path, None)?;
-    let report = inspect_repository_with_config(path, Profile::Auto, &config);
+    let report =
+        inspect_repository_with_config_and_profiles(path, profile, explicit_profiles, &config);
     let warnings = report.warning_details();
+    let profile_names = format_profiles_for_display(report.selected_profiles());
 
     if warnings.is_empty() {
         return Ok(RunOutput {
             text: [
-                "repo-doctor suggestion",
-                "Status: no warnings found.",
-                "Next steps:",
-                "1. Run local adoption preflight:",
-                "   repo-doctor preflight --format json",
-                "2. Generate profile-aware agent instructions:",
-                "   repo-doctor agent-guide --format markdown",
-                "3. Add repo-doctor to CI:",
-                "   repo-doctor ci --template generic > .github/workflows/repo-doctor.yml",
-                "4. Keep the quality gate strict:",
-                "   repo-doctor check --fail-on warn",
+                "repo-doctor suggestion".to_owned(),
+                "Status: no warnings found.".to_owned(),
+                format!("Profiles: {profile_names}"),
+                "Next steps:".to_owned(),
+                "1. Run local adoption preflight:".to_owned(),
+                "   repo-doctor preflight --format json".to_owned(),
+                "2. Generate profile-aware agent instructions:".to_owned(),
+                "   repo-doctor agent-guide --format markdown".to_owned(),
+                "3. Add repo-doctor to CI:".to_owned(),
+                "   repo-doctor ci --template generic > .github/workflows/repo-doctor.yml"
+                    .to_owned(),
+                "4. Keep the quality gate strict:".to_owned(),
+                "   repo-doctor check --fail-on warn".to_owned(),
             ]
             .join("\n"),
             exit_code: 0,
@@ -1207,6 +1231,7 @@ pub fn suggest_next_steps(path: &Path) -> Result<RunOutput> {
     let mut lines = vec![
         "repo-doctor suggestion".to_owned(),
         format!("Status: {} warning(s) found.", warnings.len()),
+        format!("Profiles: {profile_names}"),
         "Next steps:".to_owned(),
     ];
 
@@ -1238,6 +1263,18 @@ pub fn suggest_next_steps(path: &Path) -> Result<RunOutput> {
         text: lines.join("\n"),
         exit_code: 0,
     })
+}
+
+fn format_profiles_for_display(profiles: &[Profile]) -> String {
+    if profiles.is_empty() {
+        "none".to_owned()
+    } else {
+        profiles
+            .iter()
+            .map(|profile| profile.name())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 pub fn version_check(repo: &str) -> Result<RunOutput> {
@@ -3392,6 +3429,20 @@ disabled = true
         assert!(output.text.contains("repo-doctor preflight --format json"));
         assert!(output.text.contains("readme"));
         assert!(output.text.contains("Adopt gradually"));
+    }
+
+    #[test]
+    fn suggest_accepts_explicit_multi_profiles() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output = suggest_next_steps_with_profiles(
+            temp_dir.path(),
+            Profile::Generic,
+            &[Profile::Rust, Profile::Node],
+        )
+        .unwrap();
+
+        assert!(output.text.contains("Profiles: rust, node"));
     }
 
     #[test]

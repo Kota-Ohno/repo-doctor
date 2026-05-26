@@ -8,6 +8,7 @@ Copy-paste starting points for common repositories.
 
 ```bash
 repo-doctor suggest
+repo-doctor suggest --profiles rust,node
 repo-doctor ci --template generic > .github/workflows/repo-doctor.yml
 repo-doctor check --fail-on warn
 ```

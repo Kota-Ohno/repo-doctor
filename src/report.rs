@@ -848,6 +848,10 @@ impl Report {
         self.summary.warn
     }
 
+    pub fn selected_profiles(&self) -> &[Profile] {
+        &self.selected_profiles
+    }
+
     pub fn warning_ids(&self) -> Vec<&'static str> {
         self.checks
             .iter()

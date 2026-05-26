@@ -73,6 +73,7 @@ Try without creating files:
 ```bash
 repo-doctor preflight
 repo-doctor suggest
+repo-doctor suggest --profiles rust,node
 repo-doctor init --print-config
 repo-doctor ci --template generic
 ```
@@ -158,6 +159,7 @@ repo-doctor github-setup Kota-Ohno/repo-doctor --topic rust --topic cli --homepa
 repo-doctor baseline > repo-doctor-baseline.json
 repo-doctor batch repos.txt
 repo-doctor suggest
+repo-doctor suggest --profiles rust,node
 repo-doctor spec --format json
 repo-doctor recipes --format markdown
 repo-doctor agent-guide --format markdown

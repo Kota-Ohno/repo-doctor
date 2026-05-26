@@ -13,6 +13,7 @@ Try it locally without writing files:
 ```bash
 repo-doctor preflight
 repo-doctor suggest
+repo-doctor suggest --profiles rust,node
 repo-doctor check --format compact
 repo-doctor check --format summary
 repo-doctor guard --fail-on warn
