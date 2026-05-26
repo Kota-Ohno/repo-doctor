@@ -77,9 +77,19 @@ pub(crate) fn recipes(format: AiDocFormat) -> Result<RunOutput> {
 }
 
 pub(crate) fn agent_guide(path: &Path, format: AiDocFormat, profile: Profile) -> Result<RunOutput> {
+    agent_guide_with_profiles(path, format, profile, &[])
+}
+
+pub(crate) fn agent_guide_with_profiles(
+    path: &Path,
+    format: AiDocFormat,
+    profile: Profile,
+    explicit_profiles: &[Profile],
+) -> Result<RunOutput> {
     validate_repository_path(path)?;
     let config = config::load(path, None)?;
-    let selected_profiles = config.selected_profiles(path, profile);
+    let selected_profiles =
+        config.selected_profiles_with_explicit(path, profile, explicit_profiles);
     let profiles = selected_profiles
         .iter()
         .map(|profile| profile.name())

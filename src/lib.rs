@@ -228,6 +228,10 @@ pub enum Command {
         /// Profile to use for guidance.
         #[arg(long, value_enum, default_value_t = Profile::Auto)]
         profile: Profile,
+
+        /// Comma-separated profiles to use for guidance. Overrides --profile when provided.
+        #[arg(long, value_enum, value_delimiter = ',')]
+        profiles: Vec<Profile>,
     },
 
     /// Print the installed version and latest GitHub release when available.
@@ -444,7 +448,14 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             path,
             format,
             profile,
-        } => ai::agent_guide(&path, format, profile),
+            profiles,
+        } => {
+            if profiles.is_empty() {
+                ai::agent_guide(&path, format, profile)
+            } else {
+                ai::agent_guide_with_profiles(&path, format, profile, &profiles)
+            }
+        }
         Command::VersionCheck { repo } => version_check(&repo),
         Command::Github {
             repo,
@@ -2726,6 +2737,32 @@ requires = ["hatchling"]
         assert!(output.text.contains("cargo test"));
         assert!(output.text.contains("repo-doctor preflight --format json"));
         assert!(output.text.contains("repo-doctor guard --fail-on warn"));
+    }
+
+    #[test]
+    fn agent_guide_accepts_explicit_multi_profiles() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let output = ai::agent_guide_with_profiles(
+            temp_dir.path(),
+            AiDocFormat::Json,
+            Profile::Generic,
+            &[Profile::Rust, Profile::Node],
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&output.text).unwrap();
+
+        assert_eq!(
+            value["selected_profiles"],
+            serde_json::json!(["rust", "node"])
+        );
+        assert!(
+            value["verification_commands"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|command| command.as_str() == Some("cargo test"))
+        );
     }
 
     #[test]

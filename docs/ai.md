@@ -49,6 +49,7 @@ repo-doctor spec --format json
 repo-doctor recipes --format markdown
 repo-doctor check --format compact
 repo-doctor agent-guide --format markdown
+repo-doctor agent-guide --profiles rust,node --format markdown
 repo-doctor guard --fail-on warn
 ```
 
@@ -65,6 +66,7 @@ repo-doctor check --format summary
 repo-doctor preflight --format json
 repo-doctor recipes --format markdown
 repo-doctor agent-guide --format markdown
+repo-doctor agent-guide --profiles rust,node --format markdown
 repo-doctor guard --fail-on warn
 ```
 
@@ -75,11 +77,13 @@ coding task because it includes diff-aware checks for AI-generated changes.
 
 ```bash
 repo-doctor agent-guide --format markdown >> AGENTS.md
+repo-doctor agent-guide --profiles rust,node --format markdown >> AGENTS.md
 repo-doctor guard --warnings-only
 ```
 
 `agent-guide` detects repository profiles and emits verification commands and
-behavior constraints suitable for `AGENTS.md`.
+behavior constraints suitable for `AGENTS.md`. Use `--profiles` when a monorepo
+or unusual layout needs an explicit profile set.
 
 ## CI
 

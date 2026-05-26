@@ -161,6 +161,7 @@ repo-doctor suggest
 repo-doctor spec --format json
 repo-doctor recipes --format markdown
 repo-doctor agent-guide --format markdown
+repo-doctor agent-guide --profiles rust,node --format markdown
 repo-doctor ci --template node
 repo-doctor ci --template deno
 repo-doctor ci --template bun

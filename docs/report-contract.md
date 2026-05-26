@@ -40,7 +40,8 @@ AI向け発見用出力:
 - `repo-doctor recipes --format json` emits task recipes with
   `schema_version: 1`.
 - `repo-doctor agent-guide --format json` emits detected-profile guidance with
-  `schema_version: 1`.
+  `schema_version: 1`. `--profiles` may be used to provide an explicit
+  comma-separated profile set.
 
 These outputs may add fields in minor releases. Existing top-level
 `schema_version` and documented command meanings should remain stable within
