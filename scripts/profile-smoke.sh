@@ -20,13 +20,23 @@ write_common() {
 
 run_case() {
   name="$1"
-  shift
+  expected_profiles="$2"
+  shift 2
   echo "==> $name"
-  "$bin" check "$tmp/$name" --format compact "$@"
+  output="$("$bin" check "$tmp/$name" --format compact "$@")"
+  printf '%s\n' "$output"
+  expected_fragment="profiles=$expected_profiles"
+  case "$output" in
+    *"$expected_fragment"*) ;;
+    *)
+      echo "expected $expected_fragment for $name" >&2
+      exit 1
+      ;;
+  esac
 }
 
 write_common "$tmp/generic"
-run_case generic --profile generic
+run_case generic none --profile generic
 
 write_common "$tmp/node"
 cat > "$tmp/node/package.json" <<'JSON'
@@ -34,7 +44,7 @@ cat > "$tmp/node/package.json" <<'JSON'
 JSON
 printf "lockfileVersion: '9.0'\n" > "$tmp/node/pnpm-lock.yaml"
 mkdir -p "$tmp/node/src"
-run_case node --profile auto
+run_case node "node, frontend" --profile auto
 
 write_common "$tmp/python"
 cat > "$tmp/python/pyproject.toml" <<'TOML'
@@ -52,7 +62,7 @@ requires = ["hatchling"]
 test = "python -m unittest"
 TOML
 printf '\n' > "$tmp/python/uv.lock"
-run_case python --profile auto
+run_case python python --profile auto
 
 write_common "$tmp/go/apps/api"
 cat > "$tmp/go/apps/api/go.mod" <<'EOF'
@@ -60,63 +70,63 @@ module example.com/demo
 
 go 1.22
 EOF
-run_case go --profile auto
+run_case go go --profile auto
 
 write_common "$tmp/dotnet"
 mkdir -p "$tmp/dotnet/src/Demo" "$tmp/dotnet/tests/Demo.Tests"
 printf '\n' > "$tmp/dotnet/Demo.slnx"
 printf '<Project />\n' > "$tmp/dotnet/src/Demo/Demo.csproj"
 printf '<Project />\n' > "$tmp/dotnet/tests/Demo.Tests/Demo.Tests.csproj"
-run_case dotnet --profile auto
+run_case dotnet dotnet --profile auto
 
 write_common "$tmp/jvm"
 cat > "$tmp/jvm/pom.xml" <<'XML'
 <project><modelVersion>4.0.0</modelVersion><parent><groupId>com.example</groupId><artifactId>parent</artifactId><version>1</version></parent><artifactId>demo</artifactId></project>
 XML
 printf '#!/bin/sh\n' > "$tmp/jvm/mvnw"
-run_case jvm --profile auto
+run_case jvm jvm --profile auto
 
 write_common "$tmp/php"
 cat > "$tmp/php/composer.json" <<'JSON'
 {"name":"example/demo","description":"Demo","license":"MIT","type":"library","require":{"php":"^8.3"},"scripts":{"test":"phpunit"}}
 JSON
-run_case php --profile auto
+run_case php php --profile auto
 
 write_common "$tmp/ruby"
 mkdir -p "$tmp/ruby/config"
 printf "require 'rails'\n" > "$tmp/ruby/config/application.rb"
 printf "source 'https://rubygems.org'\ngem 'rails'\n" > "$tmp/ruby/Gemfile"
 printf '\n' > "$tmp/ruby/Gemfile.lock"
-run_case ruby --profile auto
+run_case ruby ruby --profile auto
 
 write_common "$tmp/cpp"
 printf '\n' > "$tmp/cpp/WORKSPACE.bazel"
 printf -- '-std=c++20\n' > "$tmp/cpp/compile_flags.txt"
 printf '\n' > "$tmp/cpp/conanfile.py"
-run_case cpp --profile auto
+run_case cpp cpp --profile auto
 
 write_common "$tmp/swift"
 printf '// swift-tools-version: 6.0\nlet package = Package(name: "Demo", targets: [.executableTarget(name: "Demo")])\n' > "$tmp/swift/Package.swift"
-run_case swift --profile auto
+run_case swift swift --profile auto
 
 write_common "$tmp/kotlin"
 printf 'plugins { id("com.android.application") version "8.0.0" }\n' > "$tmp/kotlin/build.gradle.kts"
 mkdir -p "$tmp/kotlin/app/src/androidMain/kotlin"
-run_case kotlin --profile auto
+run_case kotlin "jvm, kotlin" --profile auto
 
 write_common "$tmp/docker"
 printf 'FROM alpine:3.20\nCMD ["true"]\n' > "$tmp/docker/Dockerfile"
 printf 'target\n' > "$tmp/docker/.dockerignore"
-run_case docker --profile auto
+run_case docker docker --profile auto
 
 write_common "$tmp/iac/envs/dev"
 printf 'terraform { required_providers {} }\n' > "$tmp/iac/envs/dev/providers.tf"
 printf '\n' > "$tmp/iac/envs/dev/.terraform.lock.hcl"
-run_case iac --profile auto
+run_case iac iac --profile auto
 
 write_common "$tmp/docs"
 printf 'site_name: Demo\n' > "$tmp/docs/mkdocs.yml"
 mkdir -p "$tmp/docs/docs"
-run_case docs --profile auto
+run_case docs docs --profile auto
 
 echo "profile smoke ok"

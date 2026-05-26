@@ -68,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           if ! gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            gh release create "${RELEASE_TAG}" --verify-tag --title "${RELEASE_TAG}" --notes "repo-doctor ${RELEASE_TAG}" || true
+            gh release create "${RELEASE_TAG}" --verify-tag --title "${RELEASE_TAG}" --notes "repo-doctor ${RELEASE_TAG}"
           fi
           existing_assets="$(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name')"
           for asset in \
