@@ -918,7 +918,7 @@ fn ci_workflow(template: InitTemplate, version: &str) -> String {
             "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-node@v6\n        with:\n          node-version: lts/*\n          cache: npm\n      - run: npm ci\n      - run: npm test --if-present\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
         }
         InitTemplate::Python => {
-            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-python@v6\n        with:\n          python-version: '3.x'\n      - run: python -m pip install -U pip\n      - run: python -m pytest\n        continue-on-error: true\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
+            "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-python@v6\n        with:\n          python-version: '3.x'\n      - run: python -m pip install -U pip\n      - run: python -m pytest\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
         }
         InitTemplate::Go => {
             "name: CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-go@v6\n        with:\n          go-version: stable\n      - run: go test ./...\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
@@ -954,7 +954,7 @@ fn ci_workflow(template: InitTemplate, version: &str) -> String {
             "name: IaC CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  terraform:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: hashicorp/setup-terraform@v3\n      - run: terraform fmt -check -recursive\n      - run: terraform init -backend=false\n      - run: terraform validate\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
         }
         InitTemplate::Docs => {
-            "name: Docs CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  docs:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-node@v6\n        with:\n          node-version: lts/*\n      - run: npm ci || true\n      - run: npm run docs:build || npm run build || mkdocs build || mdbook build\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
+            "name: Docs CI\non:\n  pull_request:\n  push:\npermissions:\n  contents: read\njobs:\n  docs:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-node@v6\n        with:\n          node-version: lts/*\n      - run: npm ci\n      - run: npm run docs:build || npm run build || mkdocs build || mdbook build\n      - uses: Kota-Ohno/repo-doctor@v0.1.1\n        with:\n          fail-on: warn\n"
         }
     };
 
@@ -3138,6 +3138,21 @@ disabled = true
             let output = ci_snippet(template, "v9.9.9").unwrap();
             assert!(output.text.contains(expected), "{expected}");
             assert!(output.text.contains("Kota-Ohno/repo-doctor@v9.9.9"));
+        }
+    }
+
+    #[test]
+    fn ci_snippets_are_strict_by_default() {
+        for template in [
+            InitTemplate::Python,
+            InitTemplate::Docs,
+            InitTemplate::Generic,
+            InitTemplate::Node,
+            InitTemplate::Go,
+        ] {
+            let output = ci_snippet(template, "v9.9.9").unwrap();
+            assert!(!output.text.contains("continue-on-error"));
+            assert!(!output.text.contains("|| true"));
         }
     }
 

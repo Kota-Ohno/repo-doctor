@@ -14,9 +14,17 @@ echo "==> Binary and local preflight"
 
 echo "==> Generated CI templates"
 for template in generic rust node python go deno bun jvm dotnet php ruby swift cpp docker iac docs; do
-  "$bin" ci --template "$template" --version v9.9.9 | grep -q "Kota-Ohno/repo-doctor@v9.9.9"
+  snippet="$("$bin" ci --template "$template" --version v9.9.9)"
+  case "$snippet" in
+    *"Kota-Ohno/repo-doctor@v9.9.9"*) ;;
+    *) echo "generated template missing repo-doctor action: $template" >&2; exit 1 ;;
+  esac
 done
-"$bin" ci --guard --version v9.9.9 | grep -q "guard --base"
+guard_snippet="$("$bin" ci --guard --version v9.9.9)"
+case "$guard_snippet" in
+  *"guard --base"*) ;;
+  *) echo "generated guard template missing guard command" >&2; exit 1 ;;
+esac
 
 echo "==> Install script help"
 sh "$repo_root/scripts/install.sh" --help >/dev/null

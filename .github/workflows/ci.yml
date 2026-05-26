@@ -28,6 +28,10 @@ jobs:
       - run: taplo fmt --check
       - run: sh -n scripts/install.sh
       - run: bash -n scripts/release-preflight.sh
+      - run: bash -n scripts/profile-smoke.sh
+      - run: bash -n scripts/distribution-smoke.sh
+      - run: scripts/profile-smoke.sh
+      - run: scripts/distribution-smoke.sh
       - name: Smoke test install.sh with local release assets
         shell: bash
         run: |

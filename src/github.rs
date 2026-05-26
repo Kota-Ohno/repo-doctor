@@ -426,6 +426,10 @@ fn check_actions_permissions(repo: &str) -> Check {
         );
     };
 
+    check_actions_permissions_payload(&permissions)
+}
+
+fn check_actions_permissions_payload(permissions: &JsonValue) -> Check {
     let enabled = permissions
         .get("enabled")
         .and_then(JsonValue::as_bool)
@@ -465,6 +469,10 @@ fn check_repository_rulesets(repo: &str) -> Check {
         );
     };
 
+    check_repository_rulesets_payload(&rulesets)
+}
+
+fn check_repository_rulesets_payload(rulesets: &JsonValue) -> Check {
     if rulesets
         .as_array()
         .is_some_and(|rulesets| !rulesets.is_empty())
@@ -568,6 +576,7 @@ fn check_latest_release(repo: &str) -> Check {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::report::CheckStatus;
 
     #[test]
     fn view_payload_checks_description_topics_and_branch() {
@@ -604,5 +613,44 @@ mod tests {
     fn rejects_invalid_repo_names() {
         assert!(validate_repo("owner").is_err());
         assert!(validate_repo("owner/repo").is_ok());
+    }
+
+    #[test]
+    fn actions_permissions_payload_reports_read_only_default_as_pass() {
+        let check = check_actions_permissions_payload(&serde_json::json!({
+            "enabled": true,
+            "default_workflow_permissions": "read"
+        }));
+
+        assert!(matches!(check.status, CheckStatus::Pass));
+        assert_eq!(check.id(), "github_remote_actions_permissions");
+    }
+
+    #[test]
+    fn actions_permissions_payload_warns_on_write_default() {
+        let check = check_actions_permissions_payload(&serde_json::json!({
+            "enabled": true,
+            "default_workflow_permissions": "write"
+        }));
+
+        assert!(matches!(check.status, CheckStatus::Warn));
+        assert!(check.message.contains("write"));
+    }
+
+    #[test]
+    fn rulesets_payload_reports_empty_list_as_warning() {
+        let check = check_repository_rulesets_payload(&serde_json::json!([]));
+
+        assert!(matches!(check.status, CheckStatus::Warn));
+        assert_eq!(check.id(), "github_remote_rulesets");
+    }
+
+    #[test]
+    fn rulesets_payload_reports_configured_rulesets_as_pass() {
+        let check = check_repository_rulesets_payload(&serde_json::json!([
+            { "name": "main" }
+        ]));
+
+        assert!(matches!(check.status, CheckStatus::Pass));
     }
 }
