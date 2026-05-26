@@ -100,6 +100,18 @@ pub(crate) fn resolve(path: &Path, profile: Profile) -> Vec<Profile> {
     }
 }
 
+pub(crate) fn resolve_many(path: &Path, profiles: &[Profile]) -> Vec<Profile> {
+    let mut selected = Vec::new();
+    for profile in profiles {
+        for resolved in resolve(path, *profile) {
+            if !selected.contains(&resolved) {
+                selected.push(resolved);
+            }
+        }
+    }
+    selected
+}
+
 fn detect(path: &Path) -> Vec<Profile> {
     let mut profiles = Vec::new();
 

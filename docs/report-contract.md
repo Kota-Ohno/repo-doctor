@@ -20,6 +20,12 @@ schema version 1 の範囲では、次の互換性を維持します。
 - Text and Markdown output are intended for humans. JSON and SARIF are intended
   for automation.
 
+`selected_profiles` always reports the effective ecosystem profile list after
+auto-detection, `--profile`, `--profiles`, config, and presets are resolved.
+`generic` and core-only runs report an empty list.
+
+`selected_profiles` は、auto-detection、`--profile`、`--profiles`、config、presetを解決した後の実効ecosystem profile listを常に表します。`generic` やcore-only実行では空listになります。
+
 `summary.score` is an integer percentage based on passed checks divided by
 total checks. Disabled rules are removed before summary calculation.
 

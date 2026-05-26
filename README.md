@@ -33,9 +33,10 @@ files and ecosystem-specific metadata are present. It currently checks for:
 
 By default, `check` runs core repository checks plus auto-detected ecosystem
 profiles. Use `--profile generic` for language-independent checks only, or
-select a profile explicitly.
+select a profile explicitly. Use `--profiles rust,node,docker` to force a
+comma-separated set for monorepos or imperfect auto-detection.
 
-デフォルトの `check` は、言語非依存のcoreチェックと、自動検出されたエコシステムprofileチェックを実行します。言語非依存チェックだけを実行したい場合は `--profile generic`、特定profileを指定したい場合は `--profile rust` などを使います。
+デフォルトの `check` は、言語非依存のcoreチェックと、自動検出されたエコシステムprofileチェックを実行します。言語非依存チェックだけを実行したい場合は `--profile generic`、特定profileを指定したい場合は `--profile rust` などを使います。monorepoや自動検出の補正では `--profiles rust,node,docker` のように複数profileを明示できます。
 
 ## Install
 
@@ -131,6 +132,8 @@ repo-doctor check --warnings-only
 repo-doctor check --min-score 90
 repo-doctor check --profile generic
 repo-doctor check --profile rust
+repo-doctor check --profiles rust,node,docker
+repo-doctor guard --profiles rust,node --fail-on warn
 repo-doctor check --profile node
 repo-doctor check --profile python
 repo-doctor check --profile go

@@ -46,6 +46,18 @@ repo-doctor check --profile frontend --warnings-only
 repo-doctor ci --template node > .github/workflows/repo-doctor.yml
 ```
 
+## Monorepo / 明示的な複数profile
+
+Use `--profiles` when auto-detection misses an ecosystem or when a monorepo
+needs a fixed set of checks:
+
+auto-detectionがecosystemを拾いきれない場合や、monorepoで固定のcheck setを使いたい場合は `--profiles` を使います。
+
+```bash
+repo-doctor check --profiles rust,node,docker --format summary
+repo-doctor guard --profiles rust,node,docker --fail-on warn
+```
+
 ## Python Package
 
 ```bash

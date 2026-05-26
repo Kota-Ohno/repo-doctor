@@ -39,6 +39,10 @@ pub enum Command {
         #[arg(long, value_enum, default_value_t = Profile::Auto)]
         profile: Profile,
 
+        /// Comma-separated profiles to run. Overrides --profile when provided.
+        #[arg(long, value_enum, value_delimiter = ',')]
+        profiles: Vec<Profile>,
+
         /// Config file path. Defaults to repo-doctor.toml in the repository root.
         #[arg(long)]
         config: Option<PathBuf>,
@@ -115,6 +119,10 @@ pub enum Command {
         /// Profile to run before guard checks.
         #[arg(long, value_enum, default_value_t = Profile::Auto)]
         profile: Profile,
+
+        /// Comma-separated profiles to run before guard checks. Overrides --profile when provided.
+        #[arg(long, value_enum, value_delimiter = ',')]
+        profiles: Vec<Profile>,
 
         /// Git base ref for committed diff checks, for example origin/main.
         #[arg(long)]
@@ -352,16 +360,18 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             path,
             format,
             profile,
+            profiles,
             config,
             baseline,
             output,
             warnings_only,
             min_score,
             fail_on,
-        } => check_repository_with_options(
+        } => check_repository_with_explicit_options(
             &path,
             format,
             profile,
+            &profiles,
             config.as_deref(),
             CheckOptions {
                 fail_on,
@@ -395,6 +405,7 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             path,
             format,
             profile,
+            profiles,
             base,
             config,
             baseline,
@@ -402,10 +413,11 @@ pub fn run(cli: Cli) -> Result<RunOutput> {
             warnings_only,
             min_score,
             fail_on,
-        } => guard_repository_with_options(
+        } => guard_repository_with_explicit_options(
             &path,
             format,
             profile,
+            &profiles,
             base.as_deref(),
             config.as_deref(),
             CheckOptions {
@@ -515,6 +527,28 @@ pub fn check_repository_with_config(
     )
 }
 
+pub fn guard_repository(
+    path: &Path,
+    format: OutputFormat,
+    profile: Profile,
+    fail_on: Option<FailOn>,
+) -> Result<RunOutput> {
+    guard_repository_with_options(
+        path,
+        format,
+        profile,
+        None,
+        None,
+        CheckOptions {
+            fail_on,
+            warnings_only: false,
+            min_score: None,
+            baseline: None,
+            output: None,
+        },
+    )
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 struct CheckOptions<'a> {
     fail_on: Option<FailOn>,
@@ -531,10 +565,22 @@ fn check_repository_with_options(
     config_path: Option<&Path>,
     options: CheckOptions<'_>,
 ) -> Result<RunOutput> {
+    check_repository_with_explicit_options(path, format, profile, &[], config_path, options)
+}
+
+fn check_repository_with_explicit_options(
+    path: &Path,
+    format: OutputFormat,
+    profile: Profile,
+    explicit_profiles: &[Profile],
+    config_path: Option<&Path>,
+    options: CheckOptions<'_>,
+) -> Result<RunOutput> {
     validate_repository_path(path)?;
 
     let config = config::load(path, config_path)?;
-    let mut report = inspect_repository_with_config(path, profile, &config);
+    let mut report =
+        inspect_repository_with_config_and_profiles(path, profile, explicit_profiles, &config);
     if let Some(baseline) = options.baseline {
         let ignored = read_baseline(baseline)?;
         report = report.suppress_baseline_warnings(&ignored);
@@ -575,10 +621,28 @@ fn guard_repository_with_options(
     config_path: Option<&Path>,
     options: CheckOptions<'_>,
 ) -> Result<RunOutput> {
+    guard_repository_with_explicit_options(path, format, profile, &[], base, config_path, options)
+}
+
+fn guard_repository_with_explicit_options(
+    path: &Path,
+    format: OutputFormat,
+    profile: Profile,
+    explicit_profiles: &[Profile],
+    base: Option<&str>,
+    config_path: Option<&Path>,
+    options: CheckOptions<'_>,
+) -> Result<RunOutput> {
     validate_repository_path(path)?;
 
     let config = config::load(path, config_path)?;
-    let mut report = inspect_repository_with_config_and_guard(path, profile, base, &config);
+    let mut report = inspect_repository_with_config_and_profiles_and_guard(
+        path,
+        profile,
+        explicit_profiles,
+        base,
+        &config,
+    );
     if let Some(baseline) = options.baseline {
         let ignored = read_baseline(baseline)?;
         report = report.suppress_baseline_warnings(&ignored);
@@ -634,22 +698,34 @@ fn inspect_repository_with_config(
     profile: Profile,
     config: &config::Config,
 ) -> report::Report {
+    inspect_repository_with_config_and_profiles(path, profile, &[], config)
+}
+
+fn inspect_repository_with_config_and_profiles(
+    path: &Path,
+    profile: Profile,
+    explicit_profiles: &[Profile],
+    config: &config::Config,
+) -> report::Report {
     let mut checks = core::inspect(path);
-    let selected_profiles = config.selected_profiles(path, profile);
+    let selected_profiles =
+        config.selected_profiles_with_explicit(path, profile, explicit_profiles);
     checks.extend(profiles::inspect(path, &selected_profiles));
     checks = config.apply(checks);
 
     report::Report::new(path.to_path_buf(), selected_profiles, checks)
 }
 
-fn inspect_repository_with_config_and_guard(
+fn inspect_repository_with_config_and_profiles_and_guard(
     path: &Path,
     profile: Profile,
+    explicit_profiles: &[Profile],
     base: Option<&str>,
     config: &config::Config,
 ) -> report::Report {
     let mut checks = core::inspect(path);
-    let selected_profiles = config.selected_profiles(path, profile);
+    let selected_profiles =
+        config.selected_profiles_with_explicit(path, profile, explicit_profiles);
     checks.extend(profiles::inspect(path, &selected_profiles));
     checks.extend(guard::inspect(path, base, &selected_profiles));
     checks = config.apply(checks);
@@ -1487,6 +1563,51 @@ mod tests {
             check_repository(temp_dir.path(), OutputFormat::Text, Profile::Rust, None).unwrap();
 
         assert!(output.text.contains("[PASS] rust_cargo_name"));
+    }
+
+    #[test]
+    fn explicit_multi_profiles_run_selected_checks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        write_rust_fixture(temp_dir.path());
+        fs::write(
+            temp_dir.path().join("package.json"),
+            r#"{"name":"demo","version":"0.1.0","description":"Demo","license":"MIT","repository":"https://example.com/demo","packageManager":"npm@11.0.0","scripts":{"test":"node --test"},"engines":{"node":">=20"}}"#,
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("package-lock.json"), "{}\n").unwrap();
+
+        let output = check_repository_with_explicit_options(
+            temp_dir.path(),
+            OutputFormat::Text,
+            Profile::Generic,
+            &[Profile::Rust, Profile::Node],
+            None,
+            CheckOptions::default(),
+        )
+        .unwrap();
+
+        assert!(output.text.contains("Profiles: rust, node"));
+        assert!(output.text.contains("[PASS] rust_cargo_name"));
+        assert!(output.text.contains("[PASS] node_name"));
+    }
+
+    #[test]
+    fn explicit_multi_profiles_can_expand_auto_and_dedupe() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        write_rust_fixture(temp_dir.path());
+
+        let output = check_repository_with_explicit_options(
+            temp_dir.path(),
+            OutputFormat::Json,
+            Profile::Generic,
+            &[Profile::Rust, Profile::Auto],
+            None,
+            CheckOptions::default(),
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&output.text).unwrap();
+
+        assert_eq!(value["selected_profiles"], serde_json::json!(["rust"]));
     }
 
     #[test]

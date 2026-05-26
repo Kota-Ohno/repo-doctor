@@ -119,6 +119,19 @@ impl Config {
         dedupe_profiles(selected)
     }
 
+    pub(crate) fn selected_profiles_with_explicit(
+        &self,
+        path: &Path,
+        cli_profile: Profile,
+        explicit_profiles: &[Profile],
+    ) -> Vec<Profile> {
+        if explicit_profiles.is_empty() {
+            self.selected_profiles(path, cli_profile)
+        } else {
+            profiles::resolve_many(path, explicit_profiles)
+        }
+    }
+
     pub(crate) fn apply(&self, checks: Vec<Check>) -> Vec<Check> {
         let disabled = self.disabled_rules_with_reason();
         let preset_disabled = self.preset_disabled_rules();
